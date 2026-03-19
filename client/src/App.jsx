@@ -43,10 +43,37 @@ export default function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={
           <Layout>
-            <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-              <div style={{ fontSize: '4rem' }}>🏁</div>
-              <h1 style={{ fontFamily: 'Syne', fontWeight: 800, color: 'rgba(255,255,255,0.6)' }}>404 — Strona nie istnieje</h1>
-              <a href="/" style={{ color: '#FF5C00', textDecoration: 'none' }}>← Wróć na start</a>
+            <div style={{
+              minHeight: '70vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 16,
+              padding: '40px 24px',
+              textAlign: 'center',
+              background: 'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(255,92,0,0.05) 0%, transparent 70%)',
+            }}>
+              <div style={{
+                fontFamily: 'Syne, sans-serif',
+                fontWeight: 800,
+                fontSize: 'clamp(80px, 20vw, 160px)',
+                color: '#FF5C00',
+                lineHeight: 1,
+                textShadow: '0 0 60px rgba(255,92,0,0.25)',
+                letterSpacing: '-0.05em',
+              }}>
+                404
+              </div>
+              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, color: 'rgba(255,255,255,0.75)', fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', marginTop: 8 }}>
+                Ups! Ta strona nie istnieje.
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: '1rem', maxWidth: 360 }}>
+                Ale mamy dla Ciebie mnóstwo startów do odkrycia.
+              </p>
+              <a href="/" className="btn-primary" style={{ marginTop: 8, fontSize: '0.95rem' }}>
+                Wróć na stronę główną
+              </a>
             </div>
           </Layout>
         } />

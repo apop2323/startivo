@@ -1,11 +1,11 @@
 export const SPORT_TYPES = {
-  running: { label: 'Bieganie', emoji: '🏃', color: '#3B82F6' },
-  ocr: { label: 'OCR / Przeszkody', emoji: '💪', color: '#EF4444' },
-  hyrox: { label: 'Hyrox', emoji: '🏋️', color: '#FF5C00' },
-  triathlon: { label: 'Triathlon', emoji: '🏊', color: '#14B8A6' },
-  cycling: { label: 'Kolarstwo', emoji: '🚴', color: '#22C55E' },
-  trail: { label: 'Trail Running', emoji: '⛰️', color: '#A855F7' },
-  other: { label: 'Inne', emoji: '🏅', color: '#6B7280' },
+  running:   { label: 'Bieganie',        emoji: '🏃', color: '#4A90E2' },
+  ocr:       { label: 'OCR / Przeszkody',emoji: '💪', color: '#E25C5C' },
+  hyrox:     { label: 'Hyrox',           emoji: '🏋️', color: '#FF5C00' },
+  triathlon: { label: 'Triathlon',       emoji: '🏊', color: '#26C6DA' },
+  cycling:   { label: 'Kolarstwo',       emoji: '🚴', color: '#4CAF50' },
+  trail:     { label: 'Trail Running',   emoji: '⛰️', color: '#AB47BC' },
+  other:     { label: 'Inne',            emoji: '🏅', color: '#6B7280' },
 };
 
 export const DIFFICULTY_LABELS = {
@@ -76,6 +76,10 @@ export const getCountdownColor = (days) => {
 };
 
 export const formatPrice = (price) => {
-  if (!price) return 'Bezpłatny';
-  return `${price} zł`;
+  if (!price || price === 0) return 'Bezpłatny';
+  return new Intl.NumberFormat('pl-PL', {
+    style: 'currency',
+    currency: 'PLN',
+    maximumFractionDigits: 0,
+  }).format(price);
 };

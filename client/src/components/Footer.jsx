@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { SPORT_TYPES } from '../utils/sports';
+import { SportIcon } from './SportIcons';
 
 function SocialIcon({ href, label, children }) {
   return (
@@ -13,24 +14,29 @@ function SocialIcon({ href, label, children }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 34,
-        height: 34,
-        borderRadius: 8,
-        background: 'rgba(255,255,255,0.05)',
-        border: '1px solid var(--bg-border)',
-        color: 'var(--text-secondary)',
-        transition: 'all 0.2s var(--ease-expo)',
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        color: 'rgba(255,255,255,0.45)',
+        transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         textDecoration: 'none',
+        boxShadow: '2px 2px 6px rgba(0,0,0,0.4), -1px -1px 4px rgba(255,255,255,0.03)',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'var(--accent-dim)';
-        e.currentTarget.style.borderColor = 'rgba(255,92,0,0.3)';
-        e.currentTarget.style.color = 'var(--accent)';
+        e.currentTarget.style.background = 'rgba(255,92,0,0.12)';
+        e.currentTarget.style.borderColor = 'rgba(255,92,0,0.30)';
+        e.currentTarget.style.color = '#FF5C00';
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,92,0,0.25)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-        e.currentTarget.style.borderColor = 'var(--bg-border)';
-        e.currentTarget.style.color = 'var(--text-secondary)';
+        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)';
+        e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '2px 2px 6px rgba(0,0,0,0.4), -1px -1px 4px rgba(255,255,255,0.03)';
       }}
     >
       {children}
@@ -44,40 +50,58 @@ function FooterLink({ to, children }) {
       to={to}
       style={{
         display: 'block',
-        color: 'var(--text-secondary)',
+        color: 'rgba(255,255,255,0.45)',
         fontSize: '0.875rem',
-        marginBottom: 10,
+        marginBottom: 11,
         textDecoration: 'none',
         transition: 'color 0.2s',
+        fontWeight: 400,
       }}
-      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
-      onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+      onMouseEnter={(e) => e.currentTarget.style.color = '#FF5C00'}
+      onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.45)'}
     >
       {children}
     </Link>
   );
 }
 
+const HEADING_STYLE = {
+  fontFamily: 'DM Sans, sans-serif',
+  fontWeight: 600,
+  color: 'rgba(255,255,255,0.25)',
+  fontSize: '0.70rem',
+  letterSpacing: '0.10em',
+  textTransform: 'uppercase',
+  marginBottom: 18,
+};
+
 export default function Footer() {
   return (
     <footer style={{
-      background: 'var(--bg-base)',
-      borderTop: '1px solid var(--bg-border)',
+      background: '#0D0F14',
+      borderTop: '1px solid rgba(255,255,255,0.06)',
       marginTop: 80,
     }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '56px 20px 32px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 40, marginBottom: 48 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 24px 32px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 48,
+          marginBottom: 48,
+        }}>
 
-          {/* Brand */}
-          <div style={{ gridColumn: '1 / -1', maxWidth: 280 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <svg width="22" height="24" viewBox="0 0 26 28" fill="none">
-                <path d="M13 1L24.2 7.5V20.5L13 27L1.8 20.5V7.5L13 1Z" fill="var(--accent)" opacity="0.15" stroke="var(--accent)" strokeWidth="1.5"/>
-                <path d="M13 7L18.5 10.5V17.5L13 21L7.5 17.5V10.5L13 7Z" fill="var(--accent)" opacity="0.8"/>
+          {/* ── Col 1: Brand + socials ──────────────────────────────────── */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+              <svg width="24" height="26" viewBox="0 0 28 30" fill="none">
+                <path d="M14 2L26 8.5V21.5L14 28L2 21.5V8.5L14 2Z" fill="#FF5C00" opacity="0.15" stroke="#FF5C00" strokeWidth="1.2"/>
+                <path d="M14 8L19.5 11.5V18.5L14 22L8.5 18.5V11.5L14 8Z" fill="#FF5C00" opacity="0.9"/>
               </svg>
-              <span style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)' }}>Startivo</span>
+              <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.2rem', color: 'rgba(255,255,255,0.92)', letterSpacing: '-0.02em' }}>
+                Startivo
+              </span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.65, marginBottom: 18 }}>
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: 20 }}>
               Jedno miejsce. Wszystkie starty.<br/>
               Największy agregator wydarzeń sportowych w Polsce.
             </p>
@@ -100,11 +124,9 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Nav */}
+          {/* ── Col 2: Nawigacja ─────────────────────────────────────────── */}
           <div>
-            <h4 style={{ fontFamily: 'DM Sans', fontWeight: 500, color: 'var(--text-tertiary)', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
-              Nawigacja
-            </h4>
+            <h4 style={HEADING_STYLE}>Nawigacja</h4>
             <FooterLink to="/">Strona główna</FooterLink>
             <FooterLink to="/kalendarz">Kalendarz startów</FooterLink>
             <FooterLink to="/mapa">Mapa wydarzeń</FooterLink>
@@ -112,36 +134,63 @@ export default function Footer() {
             <FooterLink to="/dodaj">Dodaj event</FooterLink>
           </div>
 
-          {/* Sports */}
+          {/* ── Col 3: Dyscypliny ────────────────────────────────────────── */}
           <div>
-            <h4 style={{ fontFamily: 'DM Sans', fontWeight: 500, color: 'var(--text-tertiary)', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
-              Dyscypliny
-            </h4>
+            <h4 style={HEADING_STYLE}>Dyscypliny</h4>
             {Object.entries(SPORT_TYPES).filter(([k]) => k !== 'other').map(([key, sport]) => (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: sport.color, flexShrink: 0 }} />
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{sport.label}</span>
-              </div>
+              <Link
+                key={key}
+                to={`/kalendarz?sport_type=${key}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 9,
+                  marginBottom: 11,
+                  textDecoration: 'none',
+                  color: 'rgba(255,255,255,0.45)',
+                  fontSize: '0.875rem',
+                  transition: 'color 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = sport.color}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.45)'}
+              >
+                <span style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  background: sport.color,
+                  flexShrink: 0,
+                  boxShadow: `0 0 6px ${sport.color}80`,
+                }}/>
+                {sport.label}
+              </Link>
             ))}
           </div>
 
-          {/* Info */}
+          {/* ── Col 4: Informacje ────────────────────────────────────────── */}
           <div>
-            <h4 style={{ fontFamily: 'DM Sans', fontWeight: 500, color: 'var(--text-tertiary)', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
-              Informacje
-            </h4>
+            <h4 style={HEADING_STYLE}>Informacje</h4>
             <FooterLink to="/wspolpraca">Współpraca</FooterLink>
             <FooterLink to="/moje-starty">Moje starty</FooterLink>
             <FooterLink to="/polityka-prywatnosci">Polityka prywatności</FooterLink>
-            <FooterLink to="/admin">Admin</FooterLink>
+            <FooterLink to="/admin">Panel administratora</FooterLink>
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <p style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+        {/* Bottom bar */}
+        <div style={{
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          paddingTop: 24,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8,
+        }}>
+          <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: '0.78rem' }}>
             © {new Date().getFullYear()} Startivo. Wszelkie prawa zastrzeżone.
           </p>
-          <p style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+          <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: '0.78rem' }}>
             Made for active Poland 🇵🇱
           </p>
         </div>

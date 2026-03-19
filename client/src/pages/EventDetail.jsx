@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../utils/api';
 import { getSportInfo, getDifficultyInfo, formatDate, formatPrice, getDaysUntil } from '../utils/sports';
 import EventCard from '../components/EventCard';
+import { SportIcon } from '../components/SportIcons';
 import { useToast } from '../context/ToastContext';
 
 function DifficultyDots({ difficulty }) {
@@ -10,9 +11,17 @@ function DifficultyDots({ difficulty }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
       {[1,2,3,4].map((d) => (
-        <span key={d} style={{ width: 7, height: 7, borderRadius: '50%', background: d <= info.dots ? info.color : 'rgba(255,255,255,0.12)', display: 'inline-block' }} />
+        <span
+          key={d}
+          style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: d <= info.dots ? info.color : 'rgba(255,255,255,0.12)',
+            boxShadow: d <= info.dots ? `0 0 6px ${info.color}` : 'none',
+            display: 'inline-block',
+          }}
+        />
       ))}
-      <span style={{ marginLeft: 6, color: info.color, fontSize: '0.85rem', fontWeight: 500 }}>{info.label}</span>
+      <span style={{ marginLeft: 6, color: info.color, fontSize: '0.82rem', fontWeight: 600 }}>{info.label}</span>
     </span>
   );
 }
@@ -21,8 +30,16 @@ function InfoBox({ label, value, highlight }) {
   if (!value) return null;
   return (
     <div>
-      <div style={{ color: 'var(--text-tertiary)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
-      <div style={{ color: highlight ? 'var(--accent)' : 'var(--text-primary)', fontFamily: highlight ? 'Syne' : 'DM Sans', fontWeight: highlight ? 800 : 500, fontSize: highlight ? '1.2rem' : '0.95rem' }}>{value}</div>
+      <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: '0.70rem', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6, fontWeight: 500 }}>{label}</div>
+      <div style={{
+        color: highlight ? '#FF5C00' : 'rgba(255,255,255,0.92)',
+        fontFamily: highlight ? 'Syne, sans-serif' : 'DM Sans, sans-serif',
+        fontWeight: highlight ? 800 : 500,
+        fontSize: highlight ? '1.3rem' : '0.95rem',
+        textShadow: highlight ? '0 0 20px rgba(255,92,0,0.35)' : 'none',
+      }}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -140,51 +157,70 @@ export default function EventDetail() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* Breadcrumb */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--bg-border)', padding: '12px 20px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <Link to="/kalendarz" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 4, transition: 'color 0.2s' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+      <div style={{
+        background: 'var(--bg-elevated)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        padding: '12px 24px',
+      }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <Link
+            to="/kalendarz"
+            style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 5, transition: 'color 0.2s' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#FF5C00'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.45)'}
           >
             ← Kalendarz startów
           </Link>
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '36px 24px' }}>
 
-        {/* ── ANSWER BOX ─────────────────────────────────────────────── */}
+        {/* ── HERO PANEL — Soft UI ────────────────────────────────────────── */}
         <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--bg-border)',
-          borderRadius: 'var(--radius-card)',
+          background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%)',
+          border: '1px solid rgba(255,255,255,0.08)',
           borderLeft: `4px solid ${sport.color}`,
-          padding: 28,
+          borderRadius: 24,
+          padding: '36px 40px',
           marginBottom: 20,
+          boxShadow: '8px 8px 24px var(--shadow-dark), -4px -4px 14px var(--shadow-light)',
+          position: 'relative',
         }}>
           {/* Top row: sport + difficulty + countdown */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18, alignItems: 'center' }}>
-            <span className="sport-badge" style={{ background: `${sport.color}18`, color: sport.color, border: `1px solid ${sport.color}30` }}>
-              {sport.emoji} {sport.label}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+            <span
+              className="sport-badge"
+              style={{ background: `${sport.color}18`, color: sport.color, border: `1px solid ${sport.color}35` }}
+            >
+              <SportIcon sport={event.sport_type} size={12} color={sport.color}/>
+              {sport.label}
             </span>
-            {event.difficulty && <DifficultyDots difficulty={event.difficulty} />}
+            {event.difficulty && <DifficultyDots difficulty={event.difficulty}/>}
             {days >= 0 && (
               <span style={{
                 marginLeft: 'auto',
-                background: days <= 7 ? 'rgba(239,68,68,0.12)' : days <= 30 ? 'rgba(245,158,11,0.12)' : 'var(--accent-dim)',
-                color: days <= 7 ? '#EF4444' : days <= 30 ? '#F59E0B' : 'var(--accent)',
-                border: `1px solid ${days <= 7 ? 'rgba(239,68,68,0.25)' : days <= 30 ? 'rgba(245,158,11,0.25)' : 'rgba(255,92,0,0.25)'}`,
+                background: days <= 7 ? 'rgba(239,68,68,0.12)' : days <= 30 ? 'rgba(251,211,36,0.12)' : 'rgba(255,92,0,0.10)',
+                color: days <= 7 ? '#EF4444' : days <= 30 ? '#FBD324' : '#FF5C00',
+                border: `1px solid ${days <= 7 ? 'rgba(239,68,68,0.25)' : days <= 30 ? 'rgba(251,211,36,0.25)' : 'rgba(255,92,0,0.25)'}`,
                 borderRadius: 100,
-                padding: '3px 12px',
+                padding: '4px 14px',
                 fontSize: '0.8rem',
-                fontWeight: 500,
+                fontWeight: 700,
               }}>
                 {days === 0 ? 'Dziś!' : `Za ${days} dni`}
               </span>
             )}
           </div>
 
-          <h1 style={{ fontSize: 'clamp(1.5rem, 4vw, 2.2rem)', color: 'var(--text-primary)', marginBottom: 24, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+          <h1 style={{
+            fontSize: 'clamp(1.6rem, 4vw, 2.4rem)',
+            color: 'rgba(255,255,255,0.92)',
+            marginBottom: 28,
+            lineHeight: 1.15,
+            letterSpacing: '-0.02em',
+            fontFamily: 'Syne, sans-serif',
+          }}>
             {event.name}
           </h1>
 
@@ -222,8 +258,8 @@ export default function EventDetail() {
 
         {/* ── DESCRIPTION ────────────────────────────────────────────── */}
         {event.description && (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-card)', padding: 28, marginBottom: 20 }}>
-            <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: 16 }}>O wydarzeniu</h2>
+          <div className="soft-card" style={{ padding: 28, marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.2rem', color: 'rgba(255,255,255,0.92)', marginBottom: 16, fontFamily: 'Syne, sans-serif' }}>O wydarzeniu</h2>
             <p className="article-content" style={{ whiteSpace: 'pre-line' }}>{event.description}</p>
 
             {event.registration_deadline && (
@@ -237,39 +273,82 @@ export default function EventDetail() {
         {/* ── MAP ────────────────────────────────────────────────────── */}
         {event.lat && event.lng && (
           <div style={{ marginBottom: 20 }}>
-            <h2 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: 14 }}>📍 Lokalizacja</h2>
-            <div ref={mapRef} style={{ height: 300, borderRadius: 'var(--radius-card)', overflow: 'hidden', border: '1px solid var(--bg-border)' }} />
+            <h2 style={{ fontSize: '1.2rem', color: 'rgba(255,255,255,0.92)', marginBottom: 14, fontFamily: 'Syne, sans-serif' }}>📍 Lokalizacja</h2>
+            <div ref={mapRef} style={{ height: 300, borderRadius: 20, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '4px 4px 12px var(--shadow-dark)' }} />
           </div>
         )}
 
         {/* ── SHARE + ALERT ───────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 24 }}>
           {/* Share */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-card)', padding: 22 }}>
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 14 }}>Udostępnij</h3>
+          <div className="soft-card" style={{ padding: 22 }}>
+            <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.92)', marginBottom: 16, fontFamily: 'Syne, sans-serif' }}>Udostępnij</h3>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`} target="_blank" rel="noopener noreferrer"
-                style={{ background: '#1877F2', color: 'white', padding: '7px 14px', borderRadius: 100, fontSize: '0.8rem', fontWeight: 500, textDecoration: 'none' }}>
+              <a
+                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  background: '#1877F2',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: 100,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  boxShadow: '0 4px 12px rgba(24,119,242,0.35)',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
                 Facebook
               </a>
-              <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(event.name)}&url=${encodeURIComponent(window.location.href)}`} target="_blank" rel="noopener noreferrer"
-                style={{ background: '#000', color: 'white', padding: '7px 14px', borderRadius: 100, fontSize: '0.8rem', fontWeight: 500, border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none' }}>
-                X / Twitter
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(event.name)}&url=${encodeURIComponent(window.location.href)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  background: '#000',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: 100,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                𝕏 Twitter
               </a>
-              <button onClick={copyUrl} className="btn-secondary" style={{ padding: '7px 14px', fontSize: '0.8rem' }}>🔗 Kopiuj</button>
+              <button onClick={copyUrl} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.8rem' }}>
+                🔗 Kopiuj link
+              </button>
             </div>
           </div>
 
           {/* Alert */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-card)', padding: 22 }}>
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 6 }}>🔔 Powiadom mnie</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: 12 }}>Przypomnienie 7 dni przed startem</p>
+          <div className="soft-card" style={{ padding: 22 }}>
+            <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.92)', marginBottom: 6, fontFamily: 'Syne, sans-serif' }}>🔔 Powiadom mnie</h3>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.8rem', marginBottom: 14 }}>Przypomnienie 7 dni przed startem</p>
             {alertSent ? (
-              <div style={{ color: '#22C55E', fontSize: '0.875rem' }}>✓ Ustawiono przypomnienie!</div>
+              <div style={{ color: '#4CAF50', fontSize: '0.875rem', fontWeight: 500 }}>✓ Ustawiono przypomnienie!</div>
             ) : (
-              <form onSubmit={handleAlert} style={{ display: 'flex', gap: 6 }}>
-                <input type="email" value={alertEmail} onChange={(e) => setAlertEmail(e.target.value)} placeholder="email@przykład.pl" required className="input" style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }} />
-                <button type="submit" className="btn-primary" style={{ padding: '8px 14px', fontSize: '0.82rem', flexShrink: 0 }}>Ustaw</button>
+              <form onSubmit={handleAlert} style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="email"
+                  value={alertEmail}
+                  onChange={(e) => setAlertEmail(e.target.value)}
+                  placeholder="email@przykład.pl"
+                  required
+                  className="input"
+                  style={{ flex: 1, padding: '9px 12px', fontSize: '0.85rem' }}
+                />
+                <button type="submit" className="btn-primary" style={{ padding: '9px 16px', fontSize: '0.82rem', flexShrink: 0 }}>Ustaw</button>
               </form>
             )}
           </div>
@@ -278,9 +357,9 @@ export default function EventDetail() {
         {/* ── SIMILAR ─────────────────────────────────────────────────── */}
         {similar?.length > 0 && (
           <div>
-            <h2 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 16 }}>Podobne starty</h2>
+            <h2 style={{ fontSize: '1.3rem', color: 'rgba(255,255,255,0.92)', marginBottom: 20, fontFamily: 'Syne, sans-serif' }}>Podobne starty</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-              {similar.map((e) => <EventCard key={e.id} event={e} />)}
+              {similar.map((e) => <EventCard key={e.id} event={e}/>)}
             </div>
           </div>
         )}
