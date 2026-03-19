@@ -1,27 +1,107 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { getSportInfo, formatDateShort } from '../utils/sports';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getSportInfo, formatDateShort, SPORT_TYPES } from '../utils/sports';
 
-const TABS = ['Przegląd', 'Oczekujące', 'Wszystkie eventy', 'Artykuły', 'Subskrybenci', 'Zapytania'];
+const TABS = ['Przegląd', 'Oczekujące', 'Wszystkie eventy', 'Artykuły', 'Subskrybenci', 'Zapytania', 'Ustawienia'];
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
-function getToken() { return sessionStorage.getItem('startivo_admin_token'); }
-function setToken(t) { sessionStorage.setItem('startivo_admin_token', t); }
-function clearToken() { sessionStorage.removeItem('startivo_admin_token'); }
+function getToken() { return sessionStorage.getItem('startivo_jwt'); }
+function setToken(t) { sessionStorage.setItem('startivo_jwt', t); }
+function clearToken() { sessionStorage.removeItem('startivo_jwt'); }
 
 async function adminFetch(path, options = {}) {
   const token = getToken();
+  const isFormData = options.body instanceof FormData;
   const res = await fetch(`/api${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
-      'x-admin-password': token || '',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      Authorization: `Bearer ${token || ''}`,
       ...(options.headers || {}),
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: isFormData ? options.body : (options.body ? JSON.stringify(options.body) : undefined),
   });
   if (res.status === 401) { clearToken(); window.location.reload(); }
   return res;
 }
+
+// ─── Shared styles ─────────────────────────────────────────────────────────────
+const S = {
+  page: {
+    minHeight: '100vh',
+    background: '#0D0F14',
+    color: 'rgba(255,255,255,0.88)',
+    fontFamily: 'DM Sans, sans-serif',
+  },
+  topbar: {
+    background: '#111318',
+    borderBottom: '1px solid rgba(255,255,255,0.07)',
+    padding: '0 24px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 56,
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+  },
+  container: { maxWidth: 1200, margin: '0 auto', padding: '32px 24px' },
+  card: {
+    background: '#161A21',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+  },
+  input: {
+    width: '100%',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    color: 'rgba(255,255,255,0.88)',
+    padding: '10px 14px',
+    fontSize: '0.88rem',
+    outline: 'none',
+    fontFamily: 'DM Sans, sans-serif',
+    boxSizing: 'border-box',
+  },
+  label: { fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)', marginBottom: 6, display: 'block', fontWeight: 500 },
+  btnPrimary: {
+    background: 'linear-gradient(135deg, #FF6B1A, #FF5C00)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 100,
+    padding: '9px 22px',
+    fontWeight: 600,
+    fontSize: '0.85rem',
+    cursor: 'pointer',
+    fontFamily: 'DM Sans, sans-serif',
+  },
+  btnDanger: {
+    background: 'transparent',
+    color: '#EF4444',
+    border: '1px solid rgba(239,68,68,0.3)',
+    borderRadius: 100,
+    padding: '7px 16px',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    fontFamily: 'DM Sans, sans-serif',
+  },
+  btnGhost: {
+    background: 'transparent',
+    color: 'rgba(255,255,255,0.5)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 100,
+    padding: '7px 16px',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    fontFamily: 'DM Sans, sans-serif',
+  },
+  tag: (color) => ({
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    padding: '3px 10px', borderRadius: 100, fontSize: '0.72rem', fontWeight: 600,
+    background: `${color}22`, color,
+  }),
+};
 
 // ─── Login screen ─────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
@@ -29,12 +109,9 @@ function LoginScreen({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
-  const [attempts, setAttempts] = useState(0);
-  const [locked, setLocked] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (locked) return;
     setLoading(true);
     setError('');
     try {
@@ -48,380 +125,622 @@ function LoginScreen({ onLogin }) {
         setToken(data.token);
         onLogin(data.token);
       } else {
-        const data = await res.json().catch(() => ({}));
-        if (data.code === 'RATE_LIMITED') {
-          setLocked(true);
-          setError('Zbyt wiele prób. Spróbuj ponownie za 15 minut.');
-        } else {
-          const newAttempts = attempts + 1;
-          setAttempts(newAttempts);
-          setError(newAttempts >= 4 ? `Nieprawidłowe hasło (${5 - newAttempts} próba pozostała)` : 'Nieprawidłowe hasło');
-          setShake(true);
-          setTimeout(() => setShake(false), 500);
-        }
+        const data = await res.json();
+        setError(data.error || 'Nieprawidłowe hasło');
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
       }
     } catch {
       setError('Błąd połączenia z serwerem');
     } finally {
       setLoading(false);
-      setPassword('');
     }
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div className={shake ? 'shake' : ''} style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--bg-border)',
-        borderRadius: 'var(--radius-card)',
-        padding: '40px 36px',
-        width: '100%',
-        maxWidth: 360,
-        textAlign: 'center',
+    <div style={{
+      minHeight: '100vh', background: '#0D0F14',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'DM Sans, sans-serif',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: 380,
+        background: '#161A21',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 20,
+        padding: 40,
+        boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
       }}>
-        <div style={{ marginBottom: 8 }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 4 }}>
-            <rect x="3" y="11" width="18" height="11" rx="2" stroke="var(--accent)" strokeWidth="1.5"/>
-            <path d="M7 11V7a5 5 0 0110 0v4" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
+        <div style={{ marginBottom: 32, textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
+            <svg width="28" height="30" viewBox="0 0 28 30" fill="none">
+              <path d="M14 2L26 8.5V21.5L14 28L2 21.5V8.5L14 2Z" fill="#FF5C00" opacity="0.15" stroke="#FF5C00" strokeWidth="1.2"/>
+              <path d="M14 8L19.5 11.5V18.5L14 22L8.5 18.5V11.5L14 8Z" fill="#FF5C00" opacity="0.9"/>
+            </svg>
+            <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.3rem', color: 'rgba(255,255,255,0.92)' }}>
+              Startivo
+            </span>
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.8rem' }}>Panel administratora</div>
         </div>
-        <h1 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 4 }}>Panel administracyjny</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: 28 }}>Dostęp tylko dla administratora Startivo</p>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input
-            type="password"
-            placeholder="Hasło administratora"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={locked || loading}
-            className="input"
-            style={{ textAlign: 'center', padding: '12px 16px', fontSize: '0.95rem' }}
-            autoFocus
-          />
-          {error && (
-            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '8px 14px', color: '#EF4444', fontSize: '0.85rem' }}>
-              {error}
-            </div>
-          )}
-          <button type="submit" disabled={loading || locked} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '0.95rem', opacity: (loading || locked) ? 0.6 : 1 }}>
-            {loading ? 'Sprawdzam...' : 'Zaloguj się →'}
-          </button>
+        <form onSubmit={handleSubmit}>
+          <div className={shake ? 'shake' : ''}>
+            <label style={S.label}>Hasło administratora</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              style={{ ...S.input, marginBottom: 16 }}
+              placeholder="••••••••"
+              autoFocus
+            />
+            {error && (
+              <div style={{
+                color: '#EF4444', fontSize: '0.82rem', marginBottom: 16,
+                padding: '10px 14px', background: 'rgba(239,68,68,0.08)',
+                borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)',
+              }}>
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={loading || !password}
+              style={{ ...S.btnPrimary, width: '100%', padding: '12px', fontSize: '0.9rem', opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? 'Logowanie…' : 'Zaloguj się'}
+            </button>
+          </div>
         </form>
       </div>
     </div>
   );
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, color = 'var(--accent)' }) {
-  return (
-    <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-card)', padding: '20px 22px' }}>
-      <div style={{ color: 'var(--text-tertiary)', fontSize: '0.72rem', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '2rem', color }}>{value ?? '—'}</div>
-    </div>
-  );
-}
+// ─── Overview tab ─────────────────────────────────────────────────────────────
+function OverviewTab() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    adminFetch('/admin/stats').then(r => r.json()).then(setStats).catch(() => {});
+  }, []);
 
-// ─── Event row ────────────────────────────────────────────────────────────────
-function EventRow({ event, onApprove, onReject, onDelete, onFeatured }) {
-  const sport = getSportInfo(event.sport_type);
-  const statusColors = { published: '#22C55E', pending: '#F59E0B', rejected: '#EF4444' };
-  const statusLabels = { published: 'Opublikowane', pending: 'Oczekujące', rejected: 'Odrzucone' };
+  if (!stats) return <div style={{ color: 'rgba(255,255,255,0.35)', padding: '40px 0' }}>Ładowanie…</div>;
+
+  const items = [
+    { label: 'Opublikowane eventy', value: stats.published_events, color: '#22C55E' },
+    { label: 'Oczekujące', value: stats.pending_events, color: '#F59E0B' },
+    { label: 'Artykuły', value: stats.published_articles, color: '#4A90E2' },
+    { label: 'Subskrybenci', value: stats.subscribers, color: '#FF5C00' },
+  ];
 
   return (
-    <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', borderRadius: 12, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <div style={{ flex: 1, minWidth: 200 }}>
-        <div style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.9rem', marginBottom: 3 }}>{event.name}</div>
-        <div style={{ color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
-          {sport.emoji} {sport.label} · {event.city} · {formatDateShort(event.date_start)}
-          {event.organizer_email && ` · ${event.organizer_email}`}
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+      {items.map(item => (
+        <div key={item.label} style={S.card}>
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: item.color, letterSpacing: '-0.04em' }}>
+            {item.value ?? '—'}
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>{item.label}</div>
         </div>
-      </div>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-        {event.featured && <span style={{ background: 'rgba(255,92,0,0.12)', color: 'var(--accent)', border: '1px solid rgba(255,92,0,0.2)', borderRadius: 100, padding: '2px 8px', fontSize: '0.72rem' }}>⭐ Featured</span>}
-        <span style={{
-          background: `${statusColors[event.status]}18`,
-          color: statusColors[event.status] || 'var(--text-secondary)',
-          padding: '3px 10px', borderRadius: 100, fontSize: '0.75rem', fontWeight: 500,
-        }}>
-          {statusLabels[event.status] || event.status}
-        </span>
-        {event.status === 'pending' && onApprove && (
-          <button onClick={() => onApprove(event.id)} style={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 8, padding: '4px 11px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans' }}>
-            ✓ Zatwierdź
-          </button>
-        )}
-        {event.status === 'pending' && onReject && (
-          <button onClick={() => onReject(event.id)} style={{ background: 'rgba(239,68,68,0.12)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '4px 11px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans' }}>
-            ✗ Odrzuć
-          </button>
-        )}
-        {event.status === 'published' && onFeatured && (
-          <button onClick={() => onFeatured(event.id, !event.featured)} style={{ background: event.featured ? 'rgba(255,92,0,0.12)' : 'rgba(255,255,255,0.04)', color: event.featured ? 'var(--accent)' : 'var(--text-secondary)', border: `1px solid ${event.featured ? 'rgba(255,92,0,0.25)' : 'var(--bg-border)'}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans' }}>
-            {event.featured ? '⭐' : '☆'} Featured
-          </button>
-        )}
-        {onDelete && (
-          <button onClick={() => onDelete(event.id)} style={{ background: 'transparent', border: '1px solid var(--bg-border)', borderRadius: 8, padding: '4px 9px', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-tertiary)', fontFamily: 'DM Sans' }}>🗑</button>
-        )}
-      </div>
+      ))}
     </div>
   );
 }
 
-// ─── Main admin ───────────────────────────────────────────────────────────────
-export default function Admin() {
-  const [token, setTokenState] = useState(getToken());
-  const [activeTab, setActiveTab] = useState(0);
-  const [data, setData] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [eventSearch, setEventSearch] = useState('');
-  const [newArticle, setNewArticle] = useState({ title: '', slug: '', excerpt: '', content: '', author_name: 'Redakcja Startivo', sport_type: 'running', status: 'published' });
+// ─── Events tab ───────────────────────────────────────────────────────────────
+function EventsTab({ mode }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleLogin = (t) => setTokenState(t);
-  const handleLogout = () => { clearToken(); setTokenState(null); };
-
-  const loadTab = useCallback(async (tab) => {
-    if (!getToken()) return;
+  const load = useCallback(() => {
     setLoading(true);
-    try {
-      let url = '';
-      if (tab === 0) url = '/stats/admin';
-      else if (tab === 1) url = '/admin/events/pending';
-      else if (tab === 2) url = `/admin/events/all${eventSearch ? `?search=${eventSearch}` : ''}`;
-      else if (tab === 3) url = '/admin/articles';
-      else if (tab === 4) url = '/subscribers';
-      else if (tab === 5) url = '/contact';
-
-      const res = await adminFetch(url);
-      const json = await res.json();
-      setData((prev) => ({ ...prev, [tab]: json }));
-    } catch (e) {
-      console.error(e);
-    } finally {
+    const path = mode === 'pending' ? '/admin/events/pending' : '/admin/events/all';
+    adminFetch(path).then(r => r.json()).then(data => {
+      setEvents(Array.isArray(data) ? data : []);
       setLoading(false);
-    }
-  }, [eventSearch]);
+    }).catch(() => setLoading(false));
+  }, [mode]);
 
-  useEffect(() => { if (token) loadTab(activeTab); }, [token, activeTab, loadTab]);
+  useEffect(() => { load(); }, [load]);
 
   const approve = async (id) => {
     await adminFetch(`/admin/events/${id}/approve`, { method: 'PUT' });
-    setData((p) => ({ ...p, 1: (p[1] || []).filter((e) => e.id !== id) }));
+    load();
   };
   const reject = async (id) => {
     await adminFetch(`/admin/events/${id}/reject`, { method: 'PUT' });
-    setData((p) => ({ ...p, 1: (p[1] || []).filter((e) => e.id !== id) }));
+    load();
   };
-  const deleteEvent = async (id) => {
-    if (!window.confirm('Usunąć to wydarzenie?')) return;
-    await adminFetch(`/events/${id}`, { method: 'DELETE' });
-    setData((p) => ({ ...p, 1: (p[1] || []).filter((e) => e.id !== id), 2: (p[2] || []).filter((e) => e.id !== id) }));
+  const toggleFeatured = async (id, current) => {
+    await adminFetch(`/admin/events/${id}/featured`, { method: 'PUT', body: { featured: !current } });
+    load();
   };
-  const toggleFeatured = async (id, val) => {
-    await adminFetch(`/admin/events/${id}/featured`, { method: 'PUT', body: { featured: val } });
-    setData((p) => ({ ...p, 2: (p[2] || []).map((e) => e.id === id ? { ...e, featured: val } : e) }));
+  const remove = async (id) => {
+    if (!window.confirm('Usunąć event?')) return;
+    await adminFetch(`/admin/events/${id}`, { method: 'DELETE' });
+    load();
   };
-  const deleteArticle = async (id) => {
-    if (!window.confirm('Usunąć ten artykuł?')) return;
-    await adminFetch(`/admin/articles/${id}`, { method: 'DELETE' });
-    setData((p) => ({ ...p, 3: (p[3] || []).filter((a) => a.id !== id) }));
+
+  if (loading) return <div style={{ color: 'rgba(255,255,255,0.35)', padding: 24 }}>Ładowanie…</div>;
+  if (!events.length) return <div style={{ color: 'rgba(255,255,255,0.35)', padding: 24 }}>Brak eventów.</div>;
+
+  return (
+    <div>
+      {events.map(ev => {
+        const sport = getSportInfo(ev.sport_type);
+        return (
+          <div key={ev.id} style={{ ...S.card, display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4, fontSize: '0.95rem' }}>{ev.name}</div>
+              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span style={S.tag(sport.color)}>{sport.label}</span>
+                <span>{formatDateShort(ev.date_start)}</span>
+                <span>{ev.city}</span>
+                {ev.featured && <span style={S.tag('#FF5C00')}>★ Wyróżniony</span>}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>
+                Status: <span style={{ color: ev.status === 'published' ? '#22C55E' : ev.status === 'pending' ? '#F59E0B' : '#EF4444' }}>
+                  {ev.status}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+              {ev.status === 'pending' && (
+                <>
+                  <button style={S.btnPrimary} onClick={() => approve(ev.id)}>Zatwierdź</button>
+                  <button style={S.btnDanger} onClick={() => reject(ev.id)}>Odrzuć</button>
+                </>
+              )}
+              <button style={S.btnGhost} onClick={() => toggleFeatured(ev.id, ev.featured)}>
+                {ev.featured ? '★ Odznacz' : '☆ Wyróżnij'}
+              </button>
+              <button style={S.btnDanger} onClick={() => remove(ev.id)}>Usuń</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Articles tab ─────────────────────────────────────────────────────────────
+function ArticlesTab() {
+  const [articles, setArticles] = useState([]);
+  const [editing, setEditing] = useState(null); // null | 'new' | article object
+  const [form, setForm] = useState({});
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
+
+  const load = () => {
+    adminFetch('/admin/articles').then(r => r.json()).then(data => {
+      setArticles(Array.isArray(data) ? data : []);
+    }).catch(() => {});
   };
-  const saveArticle = async (e) => {
-    e.preventDefault();
-    const res = await adminFetch('/admin/articles', { method: 'POST', body: newArticle });
-    if (res.ok) {
-      const art = await res.json();
-      setData((p) => ({ ...p, 3: [art, ...(p[3] || [])] }));
-      setNewArticle({ title: '', slug: '', excerpt: '', content: '', author_name: 'Redakcja Startivo', sport_type: 'running', status: 'published' });
-      alert('Artykuł dodany!');
+
+  useEffect(() => { load(); }, []);
+
+  const openNew = () => {
+    setForm({ title: '', slug: '', excerpt: '', content: '', author_name: 'Redakcja Startivo', sport_type: 'running', status: 'draft', image_url: '' });
+    setEditing('new');
+  };
+  const openEdit = (a) => { setForm({ ...a }); setEditing(a); };
+
+  const handleImageUpload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('image', file);
+    try {
+      const res = await adminFetch('/admin/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.url) setForm(f => ({ ...f, image_url: data.url }));
+    } catch {
+      alert('Błąd uploadu');
+    } finally {
+      setUploading(false);
     }
   };
 
-  if (!token) return <LoginScreen onLogin={handleLogin} />;
+  const save = async () => {
+    const isNew = editing === 'new';
+    const method = isNew ? 'POST' : 'PUT';
+    const path = isNew ? '/admin/articles' : `/admin/articles/${form.id}`;
+    const res = await adminFetch(path, { method, body: form });
+    if (res.ok) { setEditing(null); load(); }
+    else { const d = await res.json(); alert(d.error || 'Błąd zapisu'); }
+  };
 
-  const pending = data[1] || [];
-  const stats = data[0] || {};
+  const remove = async (id) => {
+    if (!window.confirm('Usunąć artykuł?')) return;
+    await adminFetch(`/admin/articles/${id}`, { method: 'DELETE' });
+    load();
+  };
+
+  const autoSlug = (title) => title.toLowerCase()
+    .replace(/ą/g,'a').replace(/ć/g,'c').replace(/ę/g,'e').replace(/ł/g,'l')
+    .replace(/ń/g,'n').replace(/ó/g,'o').replace(/ś/g,'s').replace(/ź/g,'z').replace(/ż/g,'z')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  if (editing !== null) {
+    return (
+      <div style={S.card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h3 style={{ margin: 0, fontFamily: 'Syne, sans-serif', fontSize: '1.1rem' }}>
+            {editing === 'new' ? 'Nowy artykuł' : 'Edytuj artykuł'}
+          </h3>
+          <button style={S.btnGhost} onClick={() => setEditing(null)}>Anuluj</button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={S.label}>Tytuł *</label>
+            <input
+              style={S.input}
+              value={form.title || ''}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value, slug: autoSlug(e.target.value) }))}
+              placeholder="Tytuł artykułu"
+            />
+          </div>
+          <div>
+            <label style={S.label}>Slug</label>
+            <input
+              style={S.input}
+              value={form.slug || ''}
+              onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={S.label}>Autor</label>
+            <input style={S.input} value={form.author_name || ''} onChange={e => setForm(f => ({ ...f, author_name: e.target.value }))} />
+          </div>
+          <div>
+            <label style={S.label}>Dyscyplina</label>
+            <select style={S.input} value={form.sport_type || ''} onChange={e => setForm(f => ({ ...f, sport_type: e.target.value }))}>
+              {Object.entries(SPORT_TYPES).map(([k, s]) => (
+                <option key={k} value={k}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={S.label}>Status</label>
+            <select style={S.input} value={form.status || 'draft'} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+              <option value="draft">Szkic</option>
+              <option value="published">Opublikowany</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={S.label}>Zdjęcie główne</label>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <input
+              style={{ ...S.input, flex: 1 }}
+              value={form.image_url || ''}
+              onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
+              placeholder="/images/articles/photo.jpg"
+            />
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={e => handleImageUpload(e.target.files?.[0])}
+            />
+            <button
+              style={{ ...S.btnGhost, whiteSpace: 'nowrap', flexShrink: 0 }}
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? '↑ Wgrywanie…' : '↑ Wgraj zdjęcie'}
+            </button>
+          </div>
+          {form.image_url && (
+            <img
+              src={form.image_url}
+              alt="preview"
+              style={{ marginTop: 10, height: 120, borderRadius: 10, objectFit: 'cover', maxWidth: '100%' }}
+            />
+          )}
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={S.label}>Zajawka (excerpt)</label>
+          <textarea
+            style={{ ...S.input, resize: 'vertical', minHeight: 80 }}
+            value={form.excerpt || ''}
+            onChange={e => setForm(f => ({ ...f, excerpt: e.target.value }))}
+            placeholder="Krótki opis artykułu…"
+          />
+        </div>
+
+        <div style={{ marginBottom: 24 }}>
+          <label style={S.label}>Treść (Markdown / plain text)</label>
+          <textarea
+            style={{ ...S.input, resize: 'vertical', minHeight: 300, fontFamily: 'monospace', fontSize: '0.82rem' }}
+            value={form.content || ''}
+            onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+            placeholder="Treść artykułu…"
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button style={S.btnPrimary} onClick={save}>Zapisz artykuł</button>
+          <button style={S.btnGhost} onClick={() => setEditing(null)}>Anuluj</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
-      {/* Header */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--bg-border)', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
-        <span style={{ fontFamily: 'Syne', fontWeight: 800, color: 'var(--accent)', fontSize: '1.1rem' }}>⚡ Startivo Admin</span>
-        <button onClick={handleLogout} className="btn-secondary" style={{ padding: '6px 14px', fontSize: '0.82rem' }}>Wyloguj</button>
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <button style={S.btnPrimary} onClick={openNew}>+ Nowy artykuł</button>
+      </div>
+      {!articles.length && <div style={{ color: 'rgba(255,255,255,0.35)' }}>Brak artykułów.</div>}
+      {articles.map(a => {
+        const sport = getSportInfo(a.sport_type);
+        return (
+          <div key={a.id} style={{ ...S.card, display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            {a.image_url && (
+              <img src={a.image_url} alt="" style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+            )}
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>{a.title}</div>
+              <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span style={S.tag(sport.color)}>{sport.label}</span>
+                <span>{a.author_name}</span>
+                <span style={{ color: a.status === 'published' ? '#22C55E' : '#F59E0B' }}>{a.status}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button style={S.btnGhost} onClick={() => openEdit(a)}>Edytuj</button>
+              <button style={S.btnDanger} onClick={() => remove(a.id)}>Usuń</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Subscribers tab ──────────────────────────────────────────────────────────
+function SubscribersTab() {
+  const [subs, setSubs] = useState([]);
+  useEffect(() => {
+    adminFetch('/admin/subscribers').then(r => r.json()).then(d => setSubs(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+  return (
+    <div>
+      <div style={{ marginBottom: 16, color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
+        Łącznie: <strong style={{ color: '#fff' }}>{subs.length}</strong>
+      </div>
+      {subs.map(s => (
+        <div key={s.id} style={{ ...S.card, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.88rem' }}>{s.email}</span>
+          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>{formatDateShort(s.created_at)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Inquiries tab ────────────────────────────────────────────────────────────
+function InquiriesTab() {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    adminFetch('/admin/inquiries').then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+  return (
+    <div>
+      {!items.length && <div style={{ color: 'rgba(255,255,255,0.35)' }}>Brak zapytań.</div>}
+      {items.map(item => (
+        <div key={item.id} style={S.card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <strong>{item.name}</strong>
+            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>{formatDateShort(item.created_at)}</span>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+            {item.email} · {item.inquiry_type}
+          </div>
+          <div style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.7)' }}>{item.message}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Settings tab ─────────────────────────────────────────────────────────────
+function SettingsTab() {
+  const [form, setForm] = useState({
+    hero_image: '',
+    hero_headline_1: '',
+    hero_headline_2: '',
+    hero_subtitle: '',
+  });
+  const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    adminFetch('/admin/settings')
+      .then(r => r.json())
+      .then(d => setForm(f => ({ ...f, ...d })))
+      .catch(() => {});
+  }, []);
+
+  const handleHeroUpload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('image', file);
+    try {
+      const res = await adminFetch('/admin/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.url) setForm(f => ({ ...f, hero_image: data.url }));
+    } catch {
+      alert('Błąd uploadu');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
+    const res = await adminFetch('/admin/settings', { method: 'PUT', body: form });
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  };
+
+  return (
+    <div style={S.card}>
+      <h3 style={{ margin: '0 0 24px', fontFamily: 'Syne, sans-serif', fontSize: '1.1rem' }}>Ustawienia strony głównej</h3>
+
+      <div style={{ marginBottom: 20 }}>
+        <label style={S.label}>Zdjęcie hero (URL lub wgraj)</label>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <input
+            style={{ ...S.input, flex: 1 }}
+            value={form.hero_image || ''}
+            onChange={e => setForm(f => ({ ...f, hero_image: e.target.value }))}
+            placeholder="/images/hero-ocr.jpg"
+          />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={e => handleHeroUpload(e.target.files?.[0])}
+          />
+          <button
+            style={{ ...S.btnGhost, whiteSpace: 'nowrap', flexShrink: 0 }}
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? 'Wgrywanie…' : '↑ Wgraj'}
+          </button>
+        </div>
+        {form.hero_image && (
+          <img
+            src={form.hero_image}
+            alt="Hero preview"
+            style={{ marginTop: 12, height: 140, objectFit: 'cover', borderRadius: 12, maxWidth: '100%' }}
+          />
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        <div>
+          <label style={S.label}>Nagłówek hero — linia 1</label>
+          <input
+            style={S.input}
+            value={form.hero_headline_1 || ''}
+            onChange={e => setForm(f => ({ ...f, hero_headline_1: e.target.value }))}
+            placeholder="ZNAJDŹ SWÓJ"
+          />
+        </div>
+        <div>
+          <label style={S.label}>Nagłówek hero — linia 2</label>
+          <input
+            style={S.input}
+            value={form.hero_headline_2 || ''}
+            onChange={e => setForm(f => ({ ...f, hero_headline_2: e.target.value }))}
+            placeholder="NASTĘPNY START."
+          />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <label style={S.label}>Podtytuł hero</label>
+        <textarea
+          style={{ ...S.input, minHeight: 80, resize: 'vertical' }}
+          value={form.hero_subtitle || ''}
+          onChange={e => setForm(f => ({ ...f, hero_subtitle: e.target.value }))}
+        />
+      </div>
+
+      <button style={S.btnPrimary} onClick={save}>
+        {saved ? '✓ Zapisano!' : 'Zapisz ustawienia'}
+      </button>
+    </div>
+  );
+}
+
+// ─── Main Admin page ──────────────────────────────────────────────────────────
+export default function Admin() {
+  const [token, setTokenState] = useState(getToken());
+  const [tab, setTab] = useState(0);
+
+  const handleLogin = (t) => { setToken(t); setTokenState(t); };
+  const handleLogout = () => { clearToken(); setTokenState(null); };
+
+  if (!token) return <LoginScreen onLogin={handleLogin} />;
+
+  const tabContent = [
+    <OverviewTab key="overview" />,
+    <EventsTab key="pending" mode="pending" />,
+    <EventsTab key="all" mode="all" />,
+    <ArticlesTab key="articles" />,
+    <SubscribersTab key="subs" />,
+    <InquiriesTab key="inquiries" />,
+    <SettingsTab key="settings" />,
+  ];
+
+  return (
+    <div style={S.page}>
+      {/* Topbar */}
+      <div style={S.topbar}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="22" height="24" viewBox="0 0 28 30" fill="none">
+            <path d="M14 2L26 8.5V21.5L14 28L2 21.5V8.5L14 2Z" fill="#FF5C00" opacity="0.15" stroke="#FF5C00" strokeWidth="1.2"/>
+            <path d="M14 8L19.5 11.5V18.5L14 22L8.5 18.5V11.5L14 8Z" fill="#FF5C00" opacity="0.9"/>
+          </svg>
+          <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, color: 'rgba(255,255,255,0.9)', fontSize: '1rem' }}>
+            Startivo Admin
+          </span>
+        </div>
+        <button
+          onClick={handleLogout}
+          style={{ ...S.btnGhost, fontSize: '0.78rem', padding: '6px 14px' }}
+        >
+          Wyloguj
+        </button>
       </div>
 
       {/* Tabs */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--bg-border)', display: 'flex', overflowX: 'auto', padding: '0 16px' }}>
-        {TABS.map((tab, i) => (
-          <button key={tab} onClick={() => setActiveTab(i)} style={{
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === i ? '2px solid var(--accent)' : '2px solid transparent',
-            color: activeTab === i ? 'var(--accent)' : 'var(--text-secondary)',
-            padding: '14px 16px',
-            cursor: 'pointer',
-            fontFamily: 'DM Sans',
-            fontSize: '0.875rem',
-            fontWeight: activeTab === i ? 500 : 400,
-            whiteSpace: 'nowrap',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            transition: 'color 0.2s',
-          }}>
-            {tab}
-            {i === 1 && pending.length > 0 && <span style={{ background: '#EF4444', color: 'white', borderRadius: 100, padding: '1px 7px', fontSize: '0.7rem', fontWeight: 600 }}>{pending.length}</span>}
-          </button>
-        ))}
+      <div style={{
+        background: '#111318',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        overflowX: 'auto',
+      }}>
+        <div style={{ display: 'flex', gap: 0, padding: '0 24px', whiteSpace: 'nowrap' }}>
+          {TABS.map((t, i) => (
+            <button
+              key={t}
+              onClick={() => setTab(i)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '14px 18px',
+                fontSize: '0.85rem',
+                fontFamily: 'DM Sans, sans-serif',
+                fontWeight: tab === i ? 600 : 400,
+                color: tab === i ? '#FF5C00' : 'rgba(255,255,255,0.45)',
+                borderBottom: `2px solid ${tab === i ? '#FF5C00' : 'transparent'}`,
+                transition: 'all 0.2s',
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: 24 }}>
-        {loading && <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-tertiary)' }}>Ładowanie...</div>}
-
-        {/* ── OVERVIEW ─────────────────────────────────────────────── */}
-        {!loading && activeTab === 0 && (
-          <div>
-            <h2 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 20 }}>Przegląd</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14, marginBottom: 28 }}>
-              {(stats.by_status || []).map((s) => (
-                <StatCard key={s.status} label={s.status || 'brak'} value={s.count}
-                  color={s.status === 'published' ? '#22C55E' : s.status === 'pending' ? '#F59E0B' : '#EF4444'} />
-              ))}
-              <StatCard label="Subskrybenci" value={stats.total_subscribers} />
-              <StatCard label="Nowe zapytania" value={stats.new_inquiries} color="#F59E0B" />
-            </div>
-
-            <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>Wg dyscypliny</h3>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28 }}>
-              {(stats.by_sport || []).map((s) => {
-                const sport = getSportInfo(s.sport_type);
-                return (
-                  <div key={s.sport_type} style={{ background: `${sport.color}12`, border: `1px solid ${sport.color}25`, borderRadius: 10, padding: '10px 16px', display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span>{sport.emoji}</span>
-                    <span style={{ fontFamily: 'Syne', fontWeight: 800, color: sport.color }}>{s.count}</span>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{sport.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── PENDING ───────────────────────────────────────────────── */}
-        {!loading && activeTab === 1 && (
-          <div>
-            <h2 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 20 }}>Oczekujące ({pending.length})</h2>
-            {!pending.length ? (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-tertiary)' }}>✅ Brak oczekujących wydarzeń</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {pending.map((e) => <EventRow key={e.id} event={e} onApprove={approve} onReject={reject} onDelete={deleteEvent} />)}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── ALL EVENTS ────────────────────────────────────────────── */}
-        {!loading && activeTab === 2 && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', margin: 0 }}>Wszystkie eventy ({(data[2] || []).length})</h2>
-              <input type="text" placeholder="🔍 Szukaj..." value={eventSearch} onChange={(e) => setEventSearch(e.target.value)}
-                className="input" style={{ width: 220 }} onKeyDown={(e) => e.key === 'Enter' && loadTab(2)} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(data[2] || []).map((e) => <EventRow key={e.id} event={e} onDelete={deleteEvent} onFeatured={toggleFeatured} />)}
-            </div>
-          </div>
-        )}
-
-        {/* ── ARTICLES ──────────────────────────────────────────────── */}
-        {!loading && activeTab === 3 && (
-          <div>
-            <h2 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 20 }}>Artykuły</h2>
-
-            {/* Add form */}
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 24 }}>
-              <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 16 }}>Nowy artykuł</h3>
-              <form onSubmit={saveArticle} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <input required placeholder="Tytuł *" value={newArticle.title} onChange={(e) => setNewArticle((p) => ({ ...p, title: e.target.value }))} className="input" />
-                <input required placeholder="Slug (np. jak-zaczac-biegac)" value={newArticle.slug} onChange={(e) => setNewArticle((p) => ({ ...p, slug: e.target.value }))} className="input" />
-                <textarea required placeholder="Excerpt (krótki opis) *" value={newArticle.excerpt} onChange={(e) => setNewArticle((p) => ({ ...p, excerpt: e.target.value }))} className="input" style={{ resize: 'vertical', height: 80 }} />
-                <select value={newArticle.sport_type} onChange={(e) => setNewArticle((p) => ({ ...p, sport_type: e.target.value }))} className="input">
-                  {['running','ocr','hyrox','triathlon','cycling','trail','other'].map((k) => <option key={k} value={k}>{k}</option>)}
-                </select>
-                <textarea placeholder="Treść artykułu (pełna)" value={newArticle.content} onChange={(e) => setNewArticle((p) => ({ ...p, content: e.target.value }))} className="input" style={{ resize: 'vertical', height: 100, gridColumn: '1/-1' }} />
-                <button type="submit" className="btn-primary" style={{ gridColumn: '1/-1', justifyContent: 'center' }}>Dodaj artykuł</button>
-              </form>
-            </div>
-
-            {/* List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(data[3] || []).map((a) => {
-                const sport = getSportInfo(a.sport_type);
-                return (
-                  <div key={a.id} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', borderRadius: 12, padding: '13px 16px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '1.2rem' }}>{sport.emoji}</span>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <div style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.9rem' }}>{a.title}</div>
-                      <div style={{ color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>{a.slug} · {a.status}</div>
-                    </div>
-                    <button onClick={() => deleteArticle(a.id)} style={{ background: 'transparent', border: '1px solid var(--bg-border)', borderRadius: 8, padding: '4px 9px', cursor: 'pointer', color: 'var(--text-tertiary)', fontFamily: 'DM Sans', fontSize: '0.8rem' }}>🗑 Usuń</button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── SUBSCRIBERS ───────────────────────────────────────────── */}
-        {!loading && activeTab === 4 && (
-          <div>
-            <h2 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 20 }}>Subskrybenci ({(data[4] || []).length})</h2>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
-              {(data[4] || []).map((s, i) => (
-                <div key={s.id} style={{ padding: '11px 18px', borderBottom: i < (data[4].length - 1) ? '1px solid var(--bg-border)' : 'none', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '0.875rem', flex: 1 }}>{s.email}</span>
-                  {s.region && <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{s.region}</span>}
-                  <span style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem' }}>{new Date(s.created_at).toLocaleDateString('pl-PL')}</span>
-                </div>
-              ))}
-              {!(data[4] || []).length && <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)' }}>Brak subskrybentów</div>}
-            </div>
-          </div>
-        )}
-
-        {/* ── INQUIRIES ─────────────────────────────────────────────── */}
-        {!loading && activeTab === 5 && (
-          <div>
-            <h2 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: 20 }}>Zapytania ({(data[5] || []).length})</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {(data[5] || []).map((inq) => (
-                <div key={inq.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-card)', padding: 20 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-                    <div>
-                      <span style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.9rem' }}>{inq.name || 'Anonim'}</span>
-                      {inq.company && <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}> — {inq.company}</span>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ color: 'var(--accent)', fontSize: '0.78rem' }}>{inq.inquiry_type}</span>
-                      <span style={{ background: inq.status === 'new' ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)', color: inq.status === 'new' ? '#F59E0B' : 'var(--text-tertiary)', padding: '2px 8px', borderRadius: 100, fontSize: '0.72rem' }}>
-                        {inq.status === 'new' ? 'Nowe' : 'Przeczytane'}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: 8 }}>{inq.email}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6, background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '10px 14px' }}>{inq.message}</div>
-                  <div style={{ color: 'var(--text-tertiary)', fontSize: '0.72rem', marginTop: 8 }}>{new Date(inq.created_at).toLocaleString('pl-PL')}</div>
-                </div>
-              ))}
-              {!(data[5] || []).length && <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-tertiary)' }}>Brak zapytań</div>}
-            </div>
-          </div>
-        )}
+      {/* Content */}
+      <div style={S.container}>
+        {tabContent[tab]}
       </div>
     </div>
   );

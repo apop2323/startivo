@@ -4,21 +4,86 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0C0C0E" />
-    <meta name="description" content="Startivo — Jedno miejsce. Wszystkie starty. Znajdź biegi, triatlony, OCR i inne zawody sportowe w Polsce." />
+    <meta name="theme-color" content="#0D0D0D" />
+
+    <!-- Primary SEO -->
+    <title>Startivo — Jedno miejsce. Wszystkie starty.</title>
+    <meta name="description" content="Startivo — największy agregator wydarzeń sportowych w Polsce. Znajdź biegi, triatlony, OCR, Hyrox, Trail Running i inne zawody. Ponad 500 startów rocznie." />
+    <meta name="keywords" content="biegi Polska, zawody sportowe, kalendarz startów, OCR Polska, Hyrox, triathlon, bieganie, trail running, Runmageddon" />
+    <meta name="author" content="Startivo" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://startivo.pl/" />
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Startivo" />
     <meta property="og:url" content="https://startivo.pl/" />
     <meta property="og:title" content="Startivo — Jedno miejsce. Wszystkie starty." />
-    <meta property="og:description" content="Największy agregator wydarzeń sportowych w Polsce. Biegi, triatlony, OCR, Hyrox, Trail Running i więcej." />
+    <meta property="og:description" content="Największy agregator wydarzeń sportowych w Polsce. Biegi, triatlony, OCR, Hyrox, Trail Running i więcej — wszystko w jednym miejscu." />
     <meta property="og:image" content="https://startivo.pl/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="pl_PL" />
+
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@startivo_pl" />
+    <meta name="twitter:title" content="Startivo — Jedno miejsce. Wszystkie starty." />
+    <meta name="twitter:description" content="Największy agregator wydarzeń sportowych w Polsce. Biegi, OCR, Hyrox, Triathlon i wiele więcej." />
+    <meta name="twitter:image" content="https://startivo.pl/og-image.jpg" />
+
+    <!-- JSON-LD: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Startivo",
+      "url": "https://startivo.pl",
+      "logo": "https://startivo.pl/logo.png",
+      "description": "Największy agregator wydarzeń sportowych w Polsce",
+      "sameAs": [
+        "https://facebook.com/startivo",
+        "https://instagram.com/startivo",
+        "https://strava.com/clubs/startivo"
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "kontakt@startivo.pl",
+        "availableLanguage": "Polish"
+      }
+    }
+    </script>
+
+    <!-- JSON-LD: WebSite + SearchAction -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Startivo",
+      "url": "https://startivo.pl",
+      "description": "Agregator wydarzeń sportowych w Polsce",
+      "inLanguage": "pl-PL",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://startivo.pl/kalendarz?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
+
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-    <title>Startivo — Jedno miejsce. Wszystkie starty.</title>
   </head>
   <body>
     <noscript>Musisz włączyć JavaScript, aby używać tej strony.</noscript>

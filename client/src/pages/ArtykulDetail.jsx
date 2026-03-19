@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import api from '../utils/api';
 import { getSportInfo, formatDateShort } from '../utils/sports';
 import EventCard from '../components/EventCard';
@@ -15,7 +16,6 @@ export default function ArtykulDetail() {
     api.get(`/articles/${slug}`)
       .then((d) => {
         setData(d);
-        if (d?.article) document.title = `${d.article.title} | Startivo`;
       })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
@@ -45,6 +45,12 @@ export default function ArtykulDetail() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
+      <Helmet>
+        <title>{article.title} — Startivo</title>
+        <meta name="description" content={article.excerpt || article.content?.slice(0, 160) || 'Artykuł sportowy na Startivo.pl'} />
+        <meta property="og:title" content={`${article.title} — Startivo`} />
+        {article.image_url && <meta property="og:image" content={`https://startivo.pl${article.image_url}`} />}
+      </Helmet>
       {/* Hero */}
       <div style={{
         background: `linear-gradient(160deg, ${sport.color}12 0%, var(--bg-base) 60%)`,

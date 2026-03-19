@@ -74,8 +74,24 @@ CREATE TABLE IF NOT EXISTS articles (
   author_name VARCHAR(255),
   sport_type  VARCHAR(50),
   status      VARCHAR(20) DEFAULT 'draft',
+  image_url   VARCHAR(500),
   created_at  TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS image_url VARCHAR(500);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key         VARCHAR(100) PRIMARY KEY,
+  value       TEXT,
+  updated_at  TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO settings (key, value) VALUES
+  ('hero_image', '/images/hero-ocr.jpg'),
+  ('hero_headline_1', 'ZNAJDŹ SWÓJ'),
+  ('hero_headline_2', 'NASTĘPNY START.'),
+  ('hero_subtitle', 'Największy agregator wydarzeń sportowych w Polsce. Biegi, OCR, Hyrox, Triathlon i wiele więcej.')
+ON CONFLICT (key) DO NOTHING;
 
 -- Function to auto-update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()

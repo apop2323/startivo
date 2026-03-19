@@ -94,6 +94,23 @@ ${allUrls.map((u) => `  <url>
   }
 });
 
+// ─── Settings API (public read) ───────────────────────────────────────────────
+app.get('/api/settings', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT key, value FROM settings');
+    const settings = {};
+    result.rows.forEach((r) => { settings[r.key] = r.value; });
+    res.json(settings);
+  } catch (err) {
+    res.json({
+      hero_image: '/images/hero-ocr.jpg',
+      hero_headline_1: 'ZNAJDŹ SWÓJ',
+      hero_headline_2: 'NASTĘPNY START.',
+      hero_subtitle: 'Największy agregator wydarzeń sportowych w Polsce.',
+    });
+  }
+});
+
 // ─── Robots.txt ───────────────────────────────────────────────────────────────
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
@@ -116,6 +133,37 @@ User-agent: Bingbot
 Allow: /
 
 Sitemap: https://startivo.pl/sitemap.xml`);
+});
+
+// ─── LLMs.txt ─────────────────────────────────────────────────────────────────
+app.get('/llms.txt', (req, res) => {
+  res.type('text/plain');
+  res.send(`# Startivo
+
+> Największy agregator wydarzeń sportowych w Polsce.
+
+Startivo to platforma łącząca sportowców-amatorów z wydarzeniami sportowymi w całej Polsce. Agregujemy biegi uliczne, zawody OCR, Hyrox, triathlon, kolarstwo, trail running i wiele więcej.
+
+## Strony
+
+- [Strona główna](https://startivo.pl/) - Przegląd nadchodzących wydarzeń sportowych
+- [Kalendarz startów](https://startivo.pl/kalendarz) - Pełny kalendarz z filtrami
+- [Mapa wydarzeń](https://startivo.pl/mapa) - Mapa interaktywna
+- [Artykuły](https://startivo.pl/artykuly) - Poradniki i artykuły sportowe
+- [Dodaj event](https://startivo.pl/dodaj) - Formularz dodawania wydarzeń
+- [Współpraca](https://startivo.pl/wspolpraca) - Informacje dla organizatorów
+
+## Dyscypliny
+
+Bieganie, OCR / Przeszkody, Hyrox, Triathlon, Kolarstwo, Trail Running
+
+## API
+
+- GET /api/events - Lista wydarzeń (parametry: sport_type, voivodeship, page, limit)
+- GET /api/events/:slug - Szczegóły wydarzenia
+- GET /api/articles - Lista artykułów
+- GET /sitemap.xml - Mapa strony XML
+`);
 });
 
 // ─── Health check ─────────────────────────────────────────────────────────────

@@ -1,525 +1,515 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import EventCard from '../components/EventCard';
-import Newsletter from '../components/Newsletter';
-import PolandMapSVG from '../components/PolandMapSVG';
-import { SkeletonCard, SkeletonArticleCard } from '../components/Skeleton';
+import React, { useEffect, useState, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import { SPORT_TYPES, getSportInfo, formatDate, getDaysUntil } from '../utils/sports';
 import { SportIcon } from '../components/SportIcons';
-import api from '../utils/api';
-import { SPORT_TYPES, VOIVODESHIPS, getSportInfo } from '../utils/sports';
-import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
-// ─── Animated stat counter ─────────────────────────────────────────────────────
-function StatCounter({ value, label, suffix = '+' }) {
-  const [display, setDisplay] = useState(0);
-  const ref     = useRef(null);
-  const started = useRef(false);
+const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+// ─── Animated counter ───────────────────────────────────────────────────────
+function AnimatedNumber({ target, suffix = '' }) {
+  const [val, setVal] = useState(0);
+  const ref = useRef(null);
+  const animated = useRef(false);
 
   useEffect(() => {
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started.current) {
-        started.current = true;
-        const dur = 1400, steps = 60;
-        const inc = value / steps;
-        let cur = 0, step = 0;
-        const t = setInterval(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !animated.current) {
+        animated.current = true;
+        const duration = 1200;
+        const steps = 40;
+        let step = 0;
+        const inc = target / steps;
+        const interval = setInterval(() => {
           step++;
-          cur = Math.min(Math.round(inc * step), value);
-          setDisplay(cur);
-          if (step >= steps) clearInterval(t);
-        }, dur / steps);
+          setVal(Math.round(Math.min(inc * step, target)));
+          if (step >= steps) clearInterval(interval);
+        }, duration / steps);
       }
-    }, { threshold: 0.5 });
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, [value]);
+    }, { threshold: 0.3 });
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [target]);
+
+  return <span ref={ref}>{val}{suffix}</span>;
+}
+
+// ─── Scroll fade hook ────────────────────────────────────────────────────────
+function useScrollFade() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) el.classList.add('animate-in');
+    }, { threshold: 0.08 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
+}
+
+// ─── NumberedEvent row ────────────────────────────────────────────────────────
+function NumberedEvent({ event, index }) {
+  const sport = getSportInfo(event.sport_type);
+  const days = getDaysUntil(event.date_start);
+  const navigate = useNavigate();
 
   return (
-    <div ref={ref} style={{ textAlign: 'center' }}>
-      <div style={{
-        fontFamily: 'Syne, sans-serif',
-        fontWeight: 800,
-        fontSize: 'clamp(1.8rem, 3.5vw, 2.6rem)',
-        color: '#FF5C00',
-        lineHeight: 1,
-        textShadow: '0 0 24px rgba(255,92,0,0.35)',
-      }}>
-        {display.toLocaleString('pl-PL')}{suffix}
+    <div
+      className="numbered-event"
+      onClick={() => navigate(`/event/${event.slug}`)}
+      role="link"
+      tabIndex={0}
+      onKeyDown={e => e.key === 'Enter' && navigate(`/event/${event.slug}`)}
+    >
+      <span className="numbered-event__num">{String(index + 1).padStart(2, '0')}</span>
+      <div>
+        <div className="numbered-event__name">{event.name}</div>
+        <div className="numbered-event__meta">
+          <span>{formatDate(event.date_start)}</span>
+          <span style={{ color: 'rgba(0,0,0,0.2)' }}>·</span>
+          <span>{event.city}</span>
+          {days >= 0 && days <= 30 && (
+            <>
+              <span style={{ color: 'rgba(0,0,0,0.2)' }}>·</span>
+              <span style={{ color: '#EF4444', fontWeight: 600 }}>
+                {days === 0 ? 'Dzisiaj!' : `${days} dni`}
+              </span>
+            </>
+          )}
+        </div>
       </div>
-      <div style={{ color: 'rgba(255,255,255,0.50)', fontSize: '0.82rem', marginTop: 6, fontWeight: 400 }}>
-        {label}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <span
+          className="numbered-event__badge"
+          style={{ background: `${sport.color}18`, color: sport.color }}
+        >
+          {sport.label}
+        </span>
+        <span className="numbered-event__arrow">→</span>
       </div>
     </div>
   );
 }
 
-// ─── Article card (left border style) ─────────────────────────────────────────
-function ArticleCard({ article, delay }) {
-  const sport = getSportInfo(article.sport_type);
+// ─── Featured card (dark section) ─────────────────────────────────────────────
+function FeaturedCard({ event }) {
+  const sport = getSportInfo(event.sport_type);
+  const days = getDaysUntil(event.date_start);
   return (
-    <Link to={`/artykuly/${article.slug}`} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
+    <Link to={`/event/${event.slug}`} className="featured-card">
       <div
-        className={`soft-card fade-in-up delay-${delay}`}
-        style={{
-          padding: 22,
-          height: '100%',
+        className="featured-card__img"
+        style={event.image_url ? { backgroundImage: `url(${event.image_url})` } : {
+          background: `linear-gradient(135deg, ${sport.color}22 0%, #1C2028 100%)`,
           display: 'flex',
-          flexDirection: 'column',
-          borderLeft: `4px solid ${sport.color}`,
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        <span
-          className="sport-badge"
-          style={{ background: `${sport.color}14`, color: sport.color, border: `1px solid ${sport.color}28`, marginBottom: 14, alignSelf: 'flex-start' }}
-        >
-          <SportIcon sport={article.sport_type} size={11} color={sport.color}/>
-          {sport.label}
-        </span>
-        <h3 style={{
-          fontFamily: 'Syne, sans-serif',
-          fontWeight: 800,
-          fontSize: '1.02rem',
-          color: 'rgba(255,255,255,0.92)',
-          marginBottom: 10,
-          lineHeight: 1.35,
-          flex: 1,
-        }}>
-          {article.title}
-        </h3>
-        <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '0.875rem', lineHeight: 1.65, marginBottom: 16, fontWeight: 300 }}>
-          {article.excerpt}
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <span style={{ color: 'rgba(255,255,255,0.28)', fontSize: '0.78rem' }}>{article.author_name}</span>
-          <span style={{ color: sport.color, fontSize: '0.82rem', fontWeight: 600 }}>Czytaj →</span>
+        {!event.image_url && (
+          <div style={{ opacity: 0.25, width: 56, height: 56, color: sport.color }}>
+            <SportIcon sport={event.sport_type} size={56} color={sport.color} />
+          </div>
+        )}
+      </div>
+      <div className="featured-card__body">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '3px 10px', borderRadius: 100, fontSize: '0.72rem', fontWeight: 600,
+            background: `${sport.color}22`, color: sport.color,
+          }}>
+            {sport.label}
+          </span>
+          {days >= 0 && days <= 14 && (
+            <span style={{
+              fontSize: '0.72rem', fontWeight: 600, color: '#EF4444',
+              background: 'rgba(239,68,68,0.1)', padding: '3px 10px', borderRadius: 100,
+            }}>
+              {days === 0 ? 'Dzisiaj!' : `Za ${days} dni`}
+            </span>
+          )}
+        </div>
+        <div className="featured-card__title">{event.name}</div>
+        <div style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.4)', display: 'flex', gap: 8 }}>
+          <span>{formatDate(event.date_start)}</span>
+          <span>·</span>
+          <span>{event.city}</span>
         </div>
       </div>
     </Link>
   );
 }
 
-// ─── Sport bento card ──────────────────────────────────────────────────────────
-function SportBentoCard({ sportKey, sport, count, onClick, large }) {
-  const [hovered, setHovered] = useState(false);
+// ─── Article preview card ─────────────────────────────────────────────────────
+function ArticleCard({ article }) {
+  const sport = getSportInfo(article.sport_type);
   return (
-    <button
-      onClick={onClick}
-      className="sport-bento-card"
-      style={{
-        background: hovered ? `${sport.color}0E` : 'var(--bg-card)',
-        borderColor: hovered ? `${sport.color}40` : 'rgba(255,255,255,0.06)',
-        boxShadow: hovered
-          ? `8px 8px 24px var(--shadow-dark), -3px -3px 12px var(--shadow-light), 0 0 0 1px ${sport.color}30`
-          : '4px 4px 12px var(--shadow-dark), -2px -2px 8px var(--shadow-light)',
-        transform: hovered ? 'translateY(-5px)' : 'translateY(0)',
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div style={{
-        width: large ? 52 : 42,
-        height: large ? 52 : 42,
-        borderRadius: 14,
-        background: `${sport.color}18`,
-        border: `1px solid ${sport.color}30`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: hovered ? `0 0 16px ${sport.color}40` : 'none',
-        transition: 'box-shadow 0.3s',
-      }}>
-        <SportIcon sport={sportKey} size={large ? 26 : 22} color={sport.color}/>
+    <Link to={`/artykuly/${article.slug}`} className="article-preview">
+      <span className="article-preview__tag">{sport.label}</span>
+      <div className="article-preview__title">{article.title}</div>
+      {article.excerpt && (
+        <div className="article-preview__excerpt">{article.excerpt}</div>
+      )}
+      <div style={{ fontSize: '0.78rem', color: '#8A8A8A', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span>{article.author_name || 'Redakcja Startivo'}</span>
+        <span style={{ color: 'rgba(0,0,0,0.2)' }}>→</span>
       </div>
-      <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: large ? '1.05rem' : '0.92rem', color: 'rgba(255,255,255,0.92)' }}>
-        {sport.label}
-      </div>
-      <div style={{ color: sport.color, fontSize: '0.8rem', fontWeight: 600 }}>
-        {count || 0} startów
-      </div>
-    </button>
+    </Link>
   );
 }
 
-// ─── Main page ─────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════════
 export default function Home() {
-  const navigate = useNavigate();
-  const [search, setSearch]           = useState('');
-  const [sportFilter, setSportFilter] = useState('');
-  const [voivFilter, setVoivFilter]   = useState('');
-  const [featuredEvents, setFeaturedEvents] = useState([]);
-  const [articles, setArticles]       = useState([]);
-  const [stats, setStats]             = useState({ total_events: 150, total_regions: 16, sport_categories: 6, events_this_month: 12 });
+  const [settings, setSettings] = useState({
+    hero_image: '/images/hero-ocr.jpg',
+    hero_headline_1: 'ZNAJDŹ SWÓJ',
+    hero_headline_2: 'NASTĘPNY START.',
+    hero_subtitle: 'Największy agregator wydarzeń sportowych w Polsce. Biegi, OCR, Hyrox, Triathlon i wiele więcej.',
+  });
+  const [events, setEvents] = useState([]);
+  const [featured, setFeatured] = useState([]);
+  const [articles, setArticles] = useState([]);
+  const [stats, setStats] = useState({ total: 0, sports: 0, cities: 0, this_month: 0 });
   const [sportCounts, setSportCounts] = useState({});
-  const [loading, setLoading]         = useState(true);
-  const [geoBanner, setGeoBanner]     = useState(null);
-  const [bannerDismissed, setBannerDismissed] = useState(!!sessionStorage.getItem('startivo_geo_dismissed'));
 
-  const statsRef       = useScrollAnimation();
-  const disciplinesRef = useScrollAnimation();
-  const featuredRef    = useScrollAnimation();
-  const articlesRef    = useScrollAnimation();
+  const statsRef = useScrollFade();
+  const disciplinesRef = useScrollFade();
+  const numberedRef = useScrollFade();
+  const articlesRef = useScrollFade();
+
+  const navigate = useNavigate();
 
   useEffect(() => {
-    Promise.all([
-      api.get('/events/featured').catch(() => []),
-      api.get('/stats').catch(() => ({})),
-      api.get('/stats/by-sport').catch(() => ({})),
-      api.get('/articles?limit=3').catch(() => ({ articles: [] })),
-    ]).then(([featured, statsData, bySport, articlesData]) => {
-      setFeaturedEvents(featured || []);
-      setStats((prev) => ({ ...prev, ...statsData }));
-      setSportCounts(bySport || {});
-      setArticles(articlesData?.articles || []);
-    }).finally(() => setLoading(false));
+    fetch(`${API}/api/settings`)
+      .then(r => r.json())
+      .then(data => setSettings(s => ({ ...s, ...data })))
+      .catch(() => {});
 
-    if (!sessionStorage.getItem('startivo_geo_dismissed')) {
-      const timer = setTimeout(() => {
-        if (!navigator.geolocation) return;
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-          try {
-            const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
-            const data = await r.json();
-            const city  = data.address?.city || data.address?.town || data.address?.village;
-            const state = data.address?.state;
-            if (city) {
-              const ev = await api.get(`/events?voivodeship=${encodeURIComponent(state)}&limit=1`);
-              setGeoBanner({ city, count: ev.total || 0, state });
-            }
-          } catch { /* ignore */ }
-        }, () => {});
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
+    fetch(`${API}/api/stats`)
+      .then(r => r.json())
+      .then(data => setStats(data))
+      .catch(() => {});
+
+    fetch(`${API}/api/events?status=published&limit=50&sort=date_asc`)
+      .then(r => r.json())
+      .then(data => {
+        const evs = Array.isArray(data) ? data : (data.events || []);
+        const now = new Date();
+        const upcoming = evs
+          .filter(e => new Date(e.date_start) >= now)
+          .sort((a, b) => new Date(a.date_start) - new Date(b.date_start));
+
+        setFeatured(evs.filter(e => e.featured).slice(0, 3));
+        setEvents(upcoming.slice(0, 10));
+
+        const counts = {};
+        evs.forEach(e => {
+          if (e.sport_type) counts[e.sport_type] = (counts[e.sport_type] || 0) + 1;
+        });
+        setSportCounts(counts);
+      })
+      .catch(() => {});
+
+    fetch(`${API}/api/articles?status=published&limit=4`)
+      .then(r => r.json())
+      .then(data => setArticles(Array.isArray(data) ? data : (data.articles || [])))
+      .catch(() => {});
   }, []);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    const p = new URLSearchParams();
-    if (search)      p.set('search',      search);
-    if (sportFilter) p.set('sport_type',  sportFilter);
-    if (voivFilter)  p.set('voivodeship', voivFilter);
-    navigate(`/kalendarz?${p.toString()}`);
-  };
-
-  // Bento discipline order: [running, hyrox, ocr(wide), triathlon(wide), trail, cycling]
-  const BENTO_SPORTS = [
-    { key: 'running',   col: '1',     row: '1' },
-    { key: 'hyrox',     col: '2',     row: '1' },
-    { key: 'ocr',       col: '3 / 5', row: '1 / 3' },  // right, 2 rows tall
-    { key: 'triathlon', col: '1 / 3', row: '2' },       // left 2 wide
-    { key: 'trail',     col: '3',     row: '3' },
-    { key: 'cycling',   col: '4',     row: '3' },
-  ];
+  const sportEntries = Object.entries(SPORT_TYPES).filter(([k]) => k !== 'other');
 
   return (
-    <div>
-      {/* ── Geo banner ────────────────────────────────────────────────────── */}
-      {geoBanner && !bannerDismissed && (
-        <div style={{
-          background: 'rgba(255,92,0,0.08)',
-          borderBottom: '1px solid rgba(255,92,0,0.20)',
-          padding: '10px 24px',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 12,
-          flexWrap: 'wrap',
-          position: 'relative',
-          zIndex: 100,
-        }}>
-          <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.875rem' }}>
-            📍 Jesteś w okolicach <strong style={{ color: '#FF5C00' }}>{geoBanner.city}</strong>?
-            {' '}Mamy <strong style={{ color: '#FF5C00' }}>{geoBanner.count}</strong> startów w Twoim regionie
-          </span>
-          <button
-            onClick={() => navigate(`/kalendarz?voivodeship=${encodeURIComponent(geoBanner.state)}`)}
-            className="btn-primary"
-            style={{ padding: '5px 16px', fontSize: '0.8rem' }}
-          >
-            Zobacz →
-          </button>
-          <button
-            onClick={() => { setBannerDismissed(true); sessionStorage.setItem('startivo_geo_dismissed', '1'); }}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.30)', cursor: 'pointer', fontSize: '1.2rem', padding: '0 4px', lineHeight: 1 }}
-          >
-            ×
-          </button>
-        </div>
-      )}
+    <>
+      <Helmet>
+        <title>Startivo — Jedno miejsce. Wszystkie starty.</title>
+        <meta name="description" content="Największy agregator wydarzeń sportowych w Polsce. Znajdź biegi, triatlony, OCR, Hyrox, Trail Running i inne zawody." />
+      </Helmet>
 
-      {/* ── HERO — asymmetric bento ───────────────────────────────────────── */}
-      <section style={{
-        padding: 'clamp(56px, 8vw, 96px) 0 clamp(48px, 6vw, 72px)',
-        background: 'radial-gradient(ellipse 80% 70% at 60% 0%, rgba(255,92,0,0.07) 0%, transparent 70%)',
-        overflow: 'hidden',
-        width: '100%',
-      }}>
-        <div className="container" style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0,1fr) minmax(0,400px)',
-          gap: '40px 56px',
-          alignItems: 'center',
-        }}>
-          {/* Left: copy */}
-          <div>
-            <div
-              className="section-label fade-in-up visible"
-              style={{ marginBottom: 22, fontSize: '0.72rem' }}
-            >
-              🏆 #1 platforma sportowa w Polsce
-            </div>
-
-            <h1
-              className="fade-in-up visible delay-1"
-              style={{
-                fontSize: 'clamp(52px, 9vw, 110px)',
-                lineHeight: 0.95,
-                letterSpacing: '-0.04em',
-                marginBottom: 24,
-              }}
-            >
-              ZNAJDŹ SWÓJ<br/>
-              <span className="gradient-text">NASTĘPNY</span><br/>
-              START.
-            </h1>
-
-            <p
-              className="fade-in-up visible delay-2"
-              style={{
-                color: 'rgba(255,255,255,0.55)',
-                fontSize: 'clamp(0.95rem, 2vw, 1.1rem)',
-                maxWidth: 460,
-                lineHeight: 1.75,
-                marginBottom: 36,
-                fontWeight: 300,
-              }}
-            >
-              Biegi, triathlony, OCR, Hyrox i więcej — wszystkie polskie zawody sportowe w jednym miejscu.
-            </p>
-
-            {/* Search bar */}
-            <form
-              onSubmit={handleSearch}
-              className="search-bar fade-in-up visible delay-3"
-              style={{ padding: '8px 10px', display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: 580 }}
-            >
-              <input
-                type="text"
-                placeholder="Szukaj wydarzeń, miast, dyscyplin..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  flex: '2 1 200px',
-                  minWidth: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: 'rgba(255,255,255,0.92)',
-                  fontSize: '0.9rem',
-                  padding: '8px 10px',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}
-              />
-              <select
-                value={sportFilter}
-                onChange={(e) => setSportFilter(e.target.value)}
-                style={{
-                  flex: '1 1 130px',
-                  minWidth: 0,
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 10,
-                  color: 'rgba(255,255,255,0.60)',
-                  padding: '8px 10px',
-                  fontSize: '0.82rem',
-                  outline: 'none',
-                  fontFamily: 'DM Sans, sans-serif',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="">Dyscyplina</option>
-                {Object.entries(SPORT_TYPES).map(([k, s]) => (
-                  <option key={k} value={k}>{s.emoji} {s.label}</option>
-                ))}
-              </select>
-              <select
-                value={voivFilter}
-                onChange={(e) => setVoivFilter(e.target.value)}
-                style={{
-                  flex: '1 1 130px',
-                  minWidth: 0,
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 10,
-                  color: 'rgba(255,255,255,0.60)',
-                  padding: '8px 10px',
-                  fontSize: '0.82rem',
-                  outline: 'none',
-                  fontFamily: 'DM Sans, sans-serif',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="">Województwo</option>
-                {VOIVODESHIPS.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-              <button type="submit" className="btn-primary" style={{ flex: '0 0 auto', padding: '10px 22px', fontSize: '0.9rem' }}>
-                Szukaj →
-              </button>
-            </form>
-          </div>
-
-          {/* Right: Poland SVG map */}
-          <div className="hide-mobile fade-in-up visible delay-2" style={{ display: 'flex', justifyContent: 'center' }}>
-            <PolandMapSVG/>
-          </div>
-        </div>
-      </section>
-
-      {/* ── STATS BAR ─────────────────────────────────────────────────────── */}
-      <section style={{
-        background: 'var(--bg-elevated)',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        padding: '40px 0',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
-      }}>
+      {/* ──────────────────── HERO ──────────────────────────────────────────── */}
+      <section className="hero-fullbleed">
         <div
-          ref={statsRef}
-          className="container"
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, maxWidth: 860 }}
-        >
-          {[
-            { value: stats.total_events      || 150, label: 'Wydarzeń'                },
-            { value: stats.total_regions     || 16,  label: 'Województw'              },
-            { value: stats.sport_categories  || 6,   label: 'Dyscyplin'               },
-            { value: stats.events_this_month || 12,  label: 'Startów w tym miesiącu'  },
-          ].map((s, i) => (
-            <div key={s.label} className={`fade-in-up delay-${i + 1}`} style={{ position: 'relative' }}>
-              {i > 0 && (
-                <div style={{ position: 'absolute', left: -12, top: '20%', height: '60%', width: 1, background: 'rgba(255,255,255,0.06)' }}/>
-              )}
-              <StatCounter value={s.value} label={s.label}/>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── DISCIPLINES — Bento grid ───────────────────────────────────────── */}
-      <section style={{ padding: '80px 0 0' }}>
-        <div className="container">
-          <div style={{ marginBottom: 32 }}>
-            <span className="section-label">🏅 Dyscypliny</span>
-            <h2 style={{ color: 'var(--text-primary)', marginTop: 4 }}>Przeglądaj dyscypliny</h2>
+          className="hero-fullbleed__bg"
+          style={{ backgroundImage: `url(${settings.hero_image})` }}
+        />
+        <div className="hero-fullbleed__overlay" />
+        <div className="hero-fullbleed__content">
+          <div style={{ marginBottom: 12 }}>
+            <span style={{
+              fontFamily: 'DM Sans, sans-serif', fontWeight: 600,
+              fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: 'rgba(255,255,255,0.5)',
+            }}>
+              Agregator sportowy · Polska
+            </span>
           </div>
-
-          <div
-            ref={disciplinesRef}
-            className="bento-grid"
-            style={{ gridTemplateRows: 'auto auto auto' }}
-          >
-            {BENTO_SPORTS.map(({ key, col, row }, i) => {
-              const sport = SPORT_TYPES[key];
-              if (!sport) return null;
-              return (
-                <div
-                  key={key}
-                  className={`fade-in-up delay-${(i % 6) + 1}`}
-                  style={{ gridColumn: col, gridRow: row }}
-                >
-                  <SportBentoCard
-                    sportKey={key}
-                    sport={sport}
-                    count={sportCounts[key]}
-                    large={col.includes('/')}
-                    onClick={() => navigate(`/kalendarz?sport_type=${key}`)}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── FEATURED EVENTS — bento first card 2× wider ───────────────────── */}
-      <section style={{ padding: '80px 0' }}>
-        <div className="container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <span className="section-label">⭐ Polecane</span>
-              <h2 style={{ color: 'var(--text-primary)', marginTop: 4 }}>Polecane starty</h2>
-            </div>
-            <Link
-              to="/kalendarz"
-              style={{ color: '#FF5C00', fontSize: '0.9rem', fontWeight: 600 }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.75'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-            >
-              Zobacz wszystkie →
+          <h1 className="hero-headline">
+            {settings.hero_headline_1}<br />
+            <span style={{ color: '#FF5C00' }}>{settings.hero_headline_2}</span>
+          </h1>
+          <p style={{
+            marginTop: 24,
+            color: 'rgba(255,255,255,0.62)',
+            fontSize: 'clamp(0.95rem, 2vw, 1.1rem)',
+            lineHeight: 1.65,
+            maxWidth: 520,
+          }}>
+            {settings.hero_subtitle}
+          </p>
+          <div style={{ display: 'flex', gap: 12, marginTop: 32, flexWrap: 'wrap' }}>
+            <Link to="/kalendarz" className="btn-primary" style={{ fontSize: '0.95rem', padding: '13px 30px' }}>
+              Przeglądaj starty →
+            </Link>
+            <Link to="/mapa" className="btn-outline-white" style={{ fontSize: '0.95rem' }}>
+              Mapa wydarzeń
             </Link>
           </div>
+        </div>
+        <div style={{
+          position: 'absolute', bottom: 32, right: 48,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+          color: 'rgba(255,255,255,0.25)', fontSize: '0.65rem', letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+        }}>
+          <div style={{ width: 1, height: 44, background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.25))' }} />
+          Scroll
+        </div>
+      </section>
 
-          {loading ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-              {[1,2,3].map((i) => <div key={i} className={`fade-in-up delay-${i}`}><SkeletonCard/></div>)}
+      {/* ──────────────────── STATS STRIP ────────────────────────────────────── */}
+      <section className="stats-strip section-dark">
+        <div className="container">
+          <div
+            ref={statsRef}
+            className="scroll-fade"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              borderLeft: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            {[
+              { n: stats.total || stats.published_events || 0, label: 'Wydarzeń' },
+              { n: sportEntries.length, label: 'Dyscyplin' },
+              { n: stats.cities || 0, suffix: '+', label: 'Miast' },
+              { n: stats.this_month || stats.monthly_new || 0, suffix: '+', label: 'Nowych / miesiąc' },
+            ].map((item, i) => (
+              <div key={i} className="stats-strip__item" style={{
+                borderRight: '1px solid rgba(255,255,255,0.06)',
+                paddingLeft: 32, paddingRight: 32,
+              }}>
+                <div className="stats-strip__number">
+                  <AnimatedNumber target={item.n} suffix={item.suffix || ''} />
+                </div>
+                <div className="stats-strip__label">{item.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ──────────────────── DISCIPLINES (CREAM) ────────────────────────────── */}
+      <section className="section-cream" style={{ padding: '96px 0' }}>
+        <div className="container">
+          <div ref={disciplinesRef} className="scroll-fade">
+            <div style={{ marginBottom: 48 }}>
+              <div className="editorial-label">Dyscypliny</div>
+              <h2 className="editorial-h2" style={{ color: '#0D0D0D' }}>
+                TWOJA<br />DYSCYPLINA
+              </h2>
             </div>
-          ) : featuredEvents.length === 0 ? (
-            <p style={{ color: 'rgba(255,255,255,0.40)' }}>Brak wyróżnionych wydarzeń.</p>
-          ) : (
-            <div
-              ref={featuredRef}
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}
-            >
-              {/* First card: 2× wider (featured hero) */}
-              {featuredEvents[0] && (
-                <div className="fade-in-up delay-1" style={{ gridColumn: '1 / 3' }}>
-                  <EventCard event={featuredEvents[0]}/>
-                </div>
-              )}
-              {/* Remaining cards */}
-              {featuredEvents.slice(1).map((e, i) => (
-                <div key={e.id} className={`fade-in-up delay-${(i + 2) % 6 + 1}`}>
-                  <EventCard event={e}/>
-                </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              gap: 16,
+            }}>
+              {sportEntries.map(([key, sport]) => (
+                <button
+                  key={key}
+                  className="discipline-card"
+                  onClick={() => navigate(`/kalendarz?sport_type=${key}`)}
+                >
+                  <div className="discipline-card__icon" style={{ color: sport.color }}>
+                    <SportIcon sport={key} size={44} color={sport.color} />
+                  </div>
+                  <div className="discipline-card__name">{sport.label}</div>
+                  <div className="discipline-card__count">
+                    {sportCounts[key] || 0} startów
+                  </div>
+                </button>
               ))}
             </div>
-          )}
+          </div>
         </div>
       </section>
 
-      {/* ── ARTICLES ─────────────────────────────────────────────────────────── */}
-      <section style={{
-        padding: '72px 0 80px',
-        background: 'var(--bg-elevated)',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <div className="container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <span className="section-label">📖 Wiedza</span>
-              <h2 style={{ color: 'var(--text-primary)', marginTop: 4 }}>Poradniki i inspiracje</h2>
+      {/* ──────────────────── FEATURED EVENTS (DARK) ─────────────────────────── */}
+      {featured.length > 0 && (
+        <section className="section-dark" style={{ padding: '96px 0' }}>
+          <div className="container">
+            <div style={{ marginBottom: 48, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <div className="editorial-label">Wyróżnione</div>
+                <h2 className="editorial-h2" style={{ color: '#FFFFFF' }}>
+                  POLECANE<br />STARTY
+                </h2>
+              </div>
+              <Link
+                to="/kalendarz?featured=true"
+                style={{
+                  color: 'rgba(255,255,255,0.35)', fontSize: '0.85rem',
+                  textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+                  transition: 'color 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = '#FF5C00'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}
+              >
+                Wszystkie →
+              </Link>
             </div>
-            <Link to="/artykuly" style={{ color: '#FF5C00', fontSize: '0.9rem', fontWeight: 600 }}>
-              Wszystkie artykuły →
-            </Link>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: 20,
+            }}>
+              {featured.map(ev => <FeaturedCard key={ev.id} event={ev} />)}
+            </div>
           </div>
+        </section>
+      )}
 
-          <div
-            ref={articlesRef}
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}
-          >
-            {loading
-              ? [1,2,3].map((i) => <div key={i} className={`fade-in-up delay-${i}`}><SkeletonArticleCard/></div>)
-              : articles.length === 0
-                ? <p style={{ color: 'rgba(255,255,255,0.40)', gridColumn: '1/-1' }}>Brak artykułów.</p>
-                : articles.map((a, i) => <ArticleCard key={a.id} article={a} delay={(i % 3) + 1}/>)
-            }
+      {/* ──────────────────── NUMBERED EVENTS (LIGHT) ────────────────────────── */}
+      <section className="section-light" style={{ padding: '96px 0' }}>
+        <div className="container">
+          <div ref={numberedRef} className="scroll-fade">
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'flex-end', marginBottom: 48, flexWrap: 'wrap', gap: 16,
+            }}>
+              <div>
+                <div className="editorial-label">Nadchodzące</div>
+                <h2 className="editorial-h2" style={{ color: '#0D0D0D' }}>
+                  NAJBLIŻSZE<br />STARTY
+                </h2>
+              </div>
+              <Link to="/kalendarz" className="btn-outline-black" style={{ alignSelf: 'flex-end' }}>
+                Pełny kalendarz →
+              </Link>
+            </div>
+
+            <div>
+              {events.length === 0 ? (
+                <div style={{ padding: '60px 0', textAlign: 'center', color: '#8A8A8A' }}>
+                  Ładowanie wydarzeń…
+                </div>
+              ) : (
+                events.map((ev, i) => <NumberedEvent key={ev.id} event={ev} index={i} />)
+              )}
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: 48 }}>
+              <Link to="/kalendarz" className="btn-primary">
+                Pokaż wszystkie starty →
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── NEWSLETTER ────────────────────────────────────────────────────── */}
-      <Newsletter/>
-    </div>
+      {/* ──────────────────── CTA SPLIT ──────────────────────────────────────── */}
+      <div className="cta-split">
+        <div className="cta-split__left">
+          <div style={{
+            fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '0.72rem',
+            letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)',
+            marginBottom: 14,
+          }}>
+            Organizatorzy
+          </div>
+          <h2 style={{
+            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontSize: 'clamp(28px, 4vw, 48px)', letterSpacing: '-0.04em',
+            textTransform: 'uppercase', color: '#fff', lineHeight: 1.05, margin: 0,
+          }}>
+            DODAJ SWÓJ EVENT
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: 400 }}>
+            Bezpłatna publikacja na największym agregatorze startów w Polsce.
+            Dotrzyj do tysięcy aktywnych sportowców.
+          </p>
+          <div>
+            <Link to="/dodaj" className="btn-outline-white">Dodaj event →</Link>
+          </div>
+        </div>
+        <div className="cta-split__right">
+          <div style={{
+            fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '0.72rem',
+            letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)',
+            marginBottom: 14,
+          }}>
+            Współpraca
+          </div>
+          <h2 style={{
+            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontSize: 'clamp(28px, 4vw, 48px)', letterSpacing: '-0.04em',
+            textTransform: 'uppercase', color: '#fff', lineHeight: 1.05, margin: 0,
+          }}>
+            PARTNERSTWO & REKLAMA
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: 400 }}>
+            Promuj swoją markę wśród aktywnych Polaków.
+          </p>
+          <div>
+            <Link to="/wspolpraca" className="btn-outline-white">Dowiedz się więcej →</Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ──────────────────── ARTICLES (CREAM) ───────────────────────────────── */}
+      {articles.length > 0 && (
+        <section className="section-cream" style={{ padding: '96px 0' }}>
+          <div className="container">
+            <div ref={articlesRef} className="scroll-fade">
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '280px 1fr',
+                gap: 80,
+                alignItems: 'start',
+              }}>
+                <div style={{ position: 'sticky', top: 100 }}>
+                  <div className="editorial-label">Wiedza</div>
+                  <h2 className="editorial-h2" style={{ color: '#0D0D0D' }}>
+                    ARTYKUŁY<br />& PORADY
+                  </h2>
+                  <p style={{ color: '#8A8A8A', fontSize: '0.9rem', lineHeight: 1.6, marginTop: 16, marginBottom: 28 }}>
+                    Poradniki i opisy dyscyplin dla sportowców.
+                  </p>
+                  <Link to="/artykuly" className="btn-outline-black">
+                    Wszystkie artykuły →
+                  </Link>
+                </div>
+                <div>
+                  {articles.map(a => <ArticleCard key={a.id} article={a} />)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <style>{`
+        @media (max-width: 900px) {
+          .section-cream > .container > div > div[style*="grid-template-columns: 280px"] {
+            grid-template-columns: 1fr !important;
+            gap: 40px !important;
+          }
+          .section-cream > .container > div > div[style*="grid-template-columns: 280px"] > div:first-child {
+            position: static !important;
+          }
+        }
+      `}</style>
+    </>
   );
 }

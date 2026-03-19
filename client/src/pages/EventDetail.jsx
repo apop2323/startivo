@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import api from '../utils/api';
 import { getSportInfo, getDifficultyInfo, formatDate, formatPrice, getDaysUntil } from '../utils/sports';
 import EventCard from '../components/EventCard';
@@ -154,7 +155,13 @@ export default function EventDetail() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <Helmet>
+        <title>{event ? `${event.name} — Startivo` : 'Wydarzenie — Startivo'}</title>
+        <meta name="description" content={event?.excerpt || event?.description?.slice(0, 160) || 'Szczegóły wydarzenia sportowego na Startivo.pl'} />
+        {event && <meta property="og:title" content={`${event.name} — Startivo`} />}
+        {event?.image_url && <meta property="og:image" content={`https://startivo.pl${event.image_url}`} />}
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      </Helmet>
 
       {/* Breadcrumb */}
       <div style={{

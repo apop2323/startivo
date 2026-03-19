@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import api from '../utils/api';
 import { SPORT_TYPES, getSportInfo } from '../utils/sports';
 import { SkeletonArticleCard } from '../components/Skeleton';
@@ -54,6 +55,10 @@ export default function Artykuly() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
+      <Helmet>
+        <title>Artykuły sportowe — Startivo</title>
+        <meta name="description" content="Poradniki i artykuły o bieganiu, OCR, Hyrox, triatlonie i innych dyscyplinach. Wiedza dla aktywnych Polaków." />
+      </Helmet>
       {/* Header */}
       <div style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,92,0,0.05) 0%, transparent 100%)', padding: 'clamp(48px, 6vw, 72px) 20px clamp(32px, 4vw, 48px)', textAlign: 'center' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>

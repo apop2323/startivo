@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -27,6 +28,7 @@ function Layout({ children, noFooter = false }) {
 
 export default function App() {
   return (
+    <HelmetProvider>
     <ToastProvider>
     <BrowserRouter>
       <Routes>
@@ -80,5 +82,6 @@ export default function App() {
       </Routes>
     </BrowserRouter>
     </ToastProvider>
+    </HelmetProvider>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import EventCard from '../components/EventCard';
 import { SkeletonCard } from '../components/Skeleton';
 import { SportIcon } from '../components/SportIcons';
@@ -104,6 +105,10 @@ export default function Kalendarz() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
+      <Helmet>
+        <title>Kalendarz startów — Startivo</title>
+        <meta name="description" content="Pełny kalendarz wydarzeń sportowych w Polsce. Filtruj po dyscyplinie, województwie, terminie i cenie." />
+      </Helmet>
 
       {/* ── PAGE HEADER ─────────────────────────────────────────────────────── */}
       <div style={{
