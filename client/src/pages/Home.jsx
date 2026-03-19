@@ -249,13 +249,12 @@ export default function Home() {
 
       {/* ── HERO — asymmetric bento ───────────────────────────────────────── */}
       <section style={{
-        padding: 'clamp(56px, 8vw, 96px) 24px clamp(48px, 6vw, 72px)',
+        padding: 'clamp(56px, 8vw, 96px) 0 clamp(48px, 6vw, 72px)',
         background: 'radial-gradient(ellipse 80% 70% at 60% 0%, rgba(255,92,0,0.07) 0%, transparent 70%)',
         overflow: 'hidden',
+        width: '100%',
       }}>
-        <div style={{
-          maxWidth: 1200,
-          margin: '0 auto',
+        <div className="container" style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0,1fr) minmax(0,400px)',
           gap: '40px 56px',
@@ -381,12 +380,13 @@ export default function Home() {
         background: 'var(--bg-elevated)',
         borderTop: '1px solid rgba(255,255,255,0.06)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
-        padding: '40px 24px',
+        padding: '40px 0',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
       }}>
         <div
           ref={statsRef}
-          style={{ maxWidth: 800, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}
+          className="container"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, maxWidth: 860 }}
         >
           {[
             { value: stats.total_events      || 150, label: 'Wydarzeń'                },
@@ -406,20 +406,16 @@ export default function Home() {
 
       {/* ── DISCIPLINES — Bento grid ───────────────────────────────────────── */}
       <section style={{ padding: '80px 0 0' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div className="container">
           <div style={{ marginBottom: 32 }}>
             <span className="section-label">🏅 Dyscypliny</span>
-            <h2 style={{ color: 'rgba(255,255,255,0.92)', marginTop: 4 }}>Przeglądaj dyscypliny</h2>
+            <h2 style={{ color: 'var(--text-primary)', marginTop: 4 }}>Przeglądaj dyscypliny</h2>
           </div>
 
           <div
             ref={disciplinesRef}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gridTemplateRows: 'auto auto auto',
-              gap: 14,
-            }}
+            className="bento-grid"
+            style={{ gridTemplateRows: 'auto auto auto' }}
           >
             {BENTO_SPORTS.map(({ key, col, row }, i) => {
               const sport = SPORT_TYPES[key];
@@ -446,11 +442,11 @@ export default function Home() {
 
       {/* ── FEATURED EVENTS — bento first card 2× wider ───────────────────── */}
       <section style={{ padding: '80px 0' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
             <div>
               <span className="section-label">⭐ Polecane</span>
-              <h2 style={{ color: 'rgba(255,255,255,0.92)', marginTop: 4 }}>Polecane starty</h2>
+              <h2 style={{ color: 'var(--text-primary)', marginTop: 4 }}>Polecane starty</h2>
             </div>
             <Link
               to="/kalendarz"
@@ -492,19 +488,16 @@ export default function Home() {
 
       {/* ── ARTICLES ─────────────────────────────────────────────────────────── */}
       <section style={{
-        paddingTop: 72,
-        paddingBottom: 80,
-        paddingLeft: 0,
-        paddingRight: 0,
+        padding: '72px 0 80px',
         background: 'var(--bg-elevated)',
         borderTop: '1px solid rgba(255,255,255,0.06)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
             <div>
               <span className="section-label">📖 Wiedza</span>
-              <h2 style={{ color: 'rgba(255,255,255,0.92)', marginTop: 4 }}>Poradniki i inspiracje</h2>
+              <h2 style={{ color: 'var(--text-primary)', marginTop: 4 }}>Poradniki i inspiracje</h2>
             </div>
             <Link to="/artykuly" style={{ color: '#FF5C00', fontSize: '0.9rem', fontWeight: 600 }}>
               Wszystkie artykuły →
