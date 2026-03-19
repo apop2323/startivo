@@ -11,6 +11,9 @@ import MojeStarty from './pages/MojeStarty';
 import Wspolpraca from './pages/Wspolpraca';
 import PolitykaPrywatnosci from './pages/PolitykaPrywatnosci';
 import Admin from './pages/Admin';
+import Artykuly from './pages/Artykuly';
+import ArtykulDetail from './pages/ArtykulDetail';
+import { ToastProvider } from './context/ToastContext';
 
 function Layout({ children, noFooter = false }) {
   return (
@@ -24,6 +27,7 @@ function Layout({ children, noFooter = false }) {
 
 export default function App() {
   return (
+    <ToastProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
@@ -34,6 +38,8 @@ export default function App() {
         <Route path="/moje-starty" element={<Layout><MojeStarty /></Layout>} />
         <Route path="/wspolpraca" element={<Layout><Wspolpraca /></Layout>} />
         <Route path="/polityka-prywatnosci" element={<Layout><PolitykaPrywatnosci /></Layout>} />
+        <Route path="/artykuly" element={<Layout><Artykuly /></Layout>} />
+        <Route path="/artykuly/:slug" element={<Layout><ArtykulDetail /></Layout>} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={
           <Layout>
@@ -46,5 +52,6 @@ export default function App() {
         } />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   );
 }

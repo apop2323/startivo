@@ -1,60 +1,56 @@
 import React, { useState } from 'react';
+import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
 
 export default function Newsletter() {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | loading | success | error
-  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const { addToast } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email) return;
-    setStatus('loading');
+    setLoading(true);
     try {
-      const res = await api.post('/subscribe', { email });
-      setStatus('success');
-      setMessage(res.message);
-      setEmail('');
-    } catch (err) {
-      setStatus('error');
-      setMessage('Coś poszło nie tak. Spróbuj ponownie.');
+      await api.post('/subscribe', { email });
+      setDone(true);
+      addToast('Zapisano! Będziesz pierwszy/a o nowych startach. 🎉', 'success');
+    } catch {
+      addToast('Coś poszło nie tak. Spróbuj ponownie.', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <section style={{ background: '#1C1C1F', padding: '64px 16px' }}>
-      <div className="max-w-2xl mx-auto text-center">
-        <div style={{
-          display: 'inline-block',
-          background: 'rgba(255,92,0,0.1)',
-          color: '#FF5C00',
-          padding: '4px 16px',
-          borderRadius: 100,
-          fontSize: '0.8rem',
-          fontWeight: 500,
-          marginBottom: 16,
-          border: '1px solid rgba(255,92,0,0.2)',
-        }}>
-          📬 Newsletter
-        </div>
-        <h2 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '2rem', marginBottom: 12, color: 'rgba(255,255,255,0.88)' }}>
+    <section style={{
+      background: 'linear-gradient(135deg, rgba(255,92,0,0.07) 0%, var(--bg-base) 100%)',
+      borderTop: '1px solid rgba(255,92,0,0.12)',
+      borderBottom: '1px solid var(--bg-border)',
+      padding: '72px 20px',
+    }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
+        <span className="section-label" style={{ marginBottom: 16 }}>📬 Newsletter</span>
+        <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.4rem)', color: 'var(--text-primary)', marginBottom: 12 }}>
           Bądź pierwszy o nowych startach
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 32, lineHeight: 1.6 }}>
-          Otrzymuj powiadomienia o nowych wydarzeniach w Twojej okolicy.<br />
-          Zero spamu — tylko to, co ważne dla aktywnych.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: 36, lineHeight: 1.7, fontWeight: 300 }}>
+          Zero spamu. Tylko starty, które Cię interesują.<br />
+          Najnowsze zawody prosto na Twoją skrzynkę.
         </p>
 
-        {status === 'success' ? (
+        {done ? (
           <div style={{
             background: 'rgba(34,197,94,0.1)',
-            border: '1px solid rgba(34,197,94,0.3)',
-            borderRadius: 14,
-            padding: '16px 24px',
+            border: '1px solid rgba(34,197,94,0.25)',
+            borderRadius: 'var(--radius-card)',
+            padding: '20px 28px',
             color: '#22C55E',
             fontWeight: 500,
+            fontSize: '1rem',
           }}>
-            ✅ {message}
+            ✓ Zapisano! Będziesz pierwszy/a o nowych startach.
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -64,43 +60,24 @@ export default function Newsletter() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="twój@email.pl"
               required
+              className="input"
               style={{
-                flex: 1,
-                minWidth: 240,
-                background: '#141416',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 100,
-                padding: '12px 24px',
-                color: 'rgba(255,255,255,0.88)',
-                fontSize: '0.95rem',
-                outline: 'none',
+                flex: '1 1 220px',
                 maxWidth: 320,
+                borderRadius: 'var(--radius-btn)',
+                padding: '12px 22px',
+                fontSize: '0.95rem',
               }}
             />
             <button
               type="submit"
-              disabled={status === 'loading'}
-              style={{
-                background: '#FF5C00',
-                color: 'white',
-                border: 'none',
-                borderRadius: 100,
-                padding: '12px 28px',
-                fontWeight: 500,
-                fontSize: '0.95rem',
-                cursor: status === 'loading' ? 'wait' : 'pointer',
-                opacity: status === 'loading' ? 0.7 : 1,
-                transition: 'opacity 0.2s',
-                fontFamily: 'DM Sans',
-              }}
+              disabled={loading}
+              className="btn-primary"
+              style={{ padding: '12px 28px', fontSize: '0.95rem', opacity: loading ? 0.7 : 1 }}
             >
-              {status === 'loading' ? 'Zapisuję...' : 'Zapisz się →'}
+              {loading ? 'Zapisuję...' : 'Zapisz się →'}
             </button>
           </form>
-        )}
-
-        {status === 'error' && (
-          <p style={{ color: '#EF4444', marginTop: 8, fontSize: '0.9rem' }}>{message}</p>
         )}
       </div>
     </section>

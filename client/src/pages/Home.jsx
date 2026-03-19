@@ -1,85 +1,122 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import EventCard from '../components/EventCard';
 import Newsletter from '../components/Newsletter';
+import PolandMap from '../components/PolandMap';
+import { SkeletonCard, SkeletonArticleCard } from '../components/Skeleton';
 import api from '../utils/api';
-import { SPORT_TYPES, VOIVODESHIPS } from '../utils/sports';
+import { SPORT_TYPES, VOIVODESHIPS, getSportInfo } from '../utils/sports';
+import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
-function AnimatedStat({ value, label }) {
+// ─── Animated counter ─────────────────────────────────────────────────────────
+function StatCounter({ value, label, prefix = '', suffix = '+' }) {
   const [display, setDisplay] = useState(0);
   const ref = useRef(null);
-  const animated = useRef(false);
+  const started = useRef(false);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !animated.current) {
-        animated.current = true;
-        const duration = 1500;
-        const step = value / (duration / 16);
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !started.current) {
+        started.current = true;
+        const dur = 1400;
+        const steps = 60;
+        const increment = value / steps;
         let current = 0;
+        let step = 0;
         const timer = setInterval(() => {
-          current = Math.min(current + step, value);
-          setDisplay(Math.floor(current));
-          if (current >= value) clearInterval(timer);
-        }, 16);
+          step++;
+          current = Math.min(Math.round(increment * step), value);
+          setDisplay(current);
+          if (step >= steps) clearInterval(timer);
+        }, dur / steps);
       }
     }, { threshold: 0.5 });
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
   }, [value]);
 
   return (
     <div ref={ref} style={{ textAlign: 'center' }}>
-      <div style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '2.5rem', color: '#FF5C00', lineHeight: 1 }}>
-        {display.toLocaleString('pl-PL')}+
+      <div style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: 'clamp(2rem, 4vw, 2.8rem)', color: 'var(--accent)', lineHeight: 1 }}>
+        {prefix}{display.toLocaleString('pl-PL')}{suffix}
       </div>
-      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', marginTop: 4 }}>{label}</div>
+      <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: 6, fontWeight: 400 }}>{label}</div>
     </div>
   );
 }
 
+// ─── Article card ─────────────────────────────────────────────────────────────
+function ArticleCard({ article, delay }) {
+  const sport = getSportInfo(article.sport_type);
+  return (
+    <Link to={`/artykuly/${article.slug}`} style={{ textDecoration: 'none' }}>
+      <div className={`card fade-in-up delay-${delay}`} style={{ padding: 22, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <span className="sport-badge" style={{ background: `${sport.color}18`, color: sport.color, border: `1px solid ${sport.color}30`, marginBottom: 14, alignSelf: 'flex-start' }}>
+          {sport.emoji} {sport.label}
+        </span>
+        <h3 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)', marginBottom: 10, lineHeight: 1.35, flex: 1 }}>
+          {article.title}
+        </h3>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.65, marginBottom: 16, fontWeight: 300 }}>
+          {article.excerpt}
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTop: '1px solid var(--bg-border)', marginTop: 'auto' }}>
+          <span style={{ color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>{article.author_name}</span>
+          <span style={{ color: 'var(--accent)', fontSize: '0.82rem', fontWeight: 500 }}>Czytaj →</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function Home() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [sportFilter, setSportFilter] = useState('');
   const [voivodeshipFilter, setVoivodeshipFilter] = useState('');
   const [featuredEvents, setFeaturedEvents] = useState([]);
-  const [stats, setStats] = useState({ total_events: 0, total_regions: 0, sport_categories: 0, events_this_month: 0 });
+  const [articles, setArticles] = useState([]);
+  const [stats, setStats] = useState({ total_events: 150, total_regions: 16, sport_categories: 6, events_this_month: 12 });
   const [sportCounts, setSportCounts] = useState({});
+  const [loading, setLoading] = useState(true);
   const [geoBanner, setGeoBanner] = useState(null);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(!!sessionStorage.getItem('startivo_geo_dismissed'));
+
+  const statsRef = useScrollAnimation();
+  const disciplinesRef = useScrollAnimation();
+  const featuredRef = useScrollAnimation();
+  const articlesRef = useScrollAnimation();
 
   useEffect(() => {
     Promise.all([
-      api.get('/events/featured'),
-      api.get('/stats'),
-      api.get('/stats/by-sport'),
-    ]).then(([featured, statsData, bySport]) => {
-      setFeaturedEvents(featured);
-      setStats(statsData);
-      setSportCounts(bySport);
-    }).catch(console.error);
+      api.get('/events/featured').catch(() => []),
+      api.get('/stats').catch(() => ({})),
+      api.get('/stats/by-sport').catch(() => ({})),
+      api.get('/articles?limit=3').catch(() => ({ articles: [] })),
+    ]).then(([featured, statsData, bySport, articlesData]) => {
+      setFeaturedEvents(featured || []);
+      setStats((prev) => ({ ...prev, ...statsData }));
+      setSportCounts(bySport || {});
+      setArticles(articlesData?.articles || []);
+    }).finally(() => setLoading(false));
 
     // Geolocation banner after 3s
-    const dismissed = sessionStorage.getItem('startivo_geo_dismissed');
-    if (!dismissed) {
+    if (!sessionStorage.getItem('startivo_geo_dismissed')) {
       const timer = setTimeout(() => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(async (pos) => {
-            try {
-              const res = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`
-              );
-              const data = await res.json();
-              const city = data.address.city || data.address.town || data.address.village;
-              const state = data.address.state;
-              if (city) {
-                const eventsRes = await api.get(`/events?voivodeship=${encodeURIComponent(state)}&limit=1`);
-                setGeoBanner({ city, count: eventsRes.total, state });
-              }
-            } catch (e) { /* ignore */ }
-          }, () => { /* ignore permission denied */ });
-        }
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          try {
+            const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
+            const data = await r.json();
+            const city = data.address?.city || data.address?.town || data.address?.village;
+            const state = data.address?.state;
+            if (city) {
+              const ev = await api.get(`/events?voivodeship=${encodeURIComponent(state)}&limit=1`);
+              setGeoBanner({ city, count: ev.total || 0, state });
+            }
+          } catch { /* ignore */ }
+        }, () => {});
       }, 3000);
       return () => clearTimeout(timer);
     }
@@ -87,11 +124,11 @@ export default function Home() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (search) params.set('search', search);
-    if (sportFilter) params.set('sport_type', sportFilter);
-    if (voivodeshipFilter) params.set('voivodeship', voivodeshipFilter);
-    navigate(`/kalendarz?${params.toString()}`);
+    const p = new URLSearchParams();
+    if (search) p.set('search', search);
+    if (sportFilter) p.set('sport_type', sportFilter);
+    if (voivodeshipFilter) p.set('voivodeship', voivodeshipFilter);
+    navigate(`/kalendarz?${p.toString()}`);
   };
 
   const dismissBanner = () => {
@@ -104,212 +141,175 @@ export default function Home() {
       {/* Geo banner */}
       {geoBanner && !bannerDismissed && (
         <div style={{
-          background: '#1C1C1F',
-          borderBottom: '1px solid rgba(255,92,0,0.3)',
-          padding: '12px 16px',
+          background: 'rgba(255,92,0,0.08)',
+          borderBottom: '1px solid rgba(255,92,0,0.2)',
+          padding: '10px 20px',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           gap: 12,
           flexWrap: 'wrap',
+          position: 'relative',
+          zIndex: 100,
         }}>
-          <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
-            📍 Jesteś w okolicach <strong style={{ color: '#FF5C00' }}>{geoBanner.city}</strong>?
-            Mamy <strong style={{ color: '#FF5C00' }}>{geoBanner.count}</strong> startów w Twoim regionie →
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+            📍 Jesteś w okolicach <strong style={{ color: 'var(--accent)' }}>{geoBanner.city}</strong>?
+            Mamy <strong style={{ color: 'var(--accent)' }}>{geoBanner.count}</strong> startów w Twoim regionie
           </span>
           <button
             onClick={() => navigate(`/kalendarz?voivodeship=${encodeURIComponent(geoBanner.state)}`)}
-            style={{ background: '#FF5C00', color: 'white', border: 'none', borderRadius: 100, padding: '4px 14px', cursor: 'pointer', fontSize: '0.85rem' }}
+            className="btn-primary"
+            style={{ padding: '5px 16px', fontSize: '0.8rem' }}
           >
-            Zobacz
+            Zobacz →
           </button>
-          <button
-            onClick={dismissBanner}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px' }}
-          >
+          <button onClick={dismissBanner} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px', lineHeight: 1 }}>
             ×
           </button>
         </div>
       )}
 
-      {/* Hero */}
+      {/* ── HERO ──────────────────────────────────────────────────────────── */}
       <section style={{
-        background: 'radial-gradient(ellipse at top, rgba(255,92,0,0.08) 0%, transparent 60%), #0C0C0E',
-        padding: '80px 16px 64px',
-        textAlign: 'center',
+        padding: 'clamp(60px, 8vw, 96px) 20px clamp(48px, 6vw, 72px)',
+        background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,92,0,0.06) 0%, transparent 100%)',
+        overflow: 'hidden',
       }}>
-        <div className="max-w-4xl mx-auto">
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'rgba(255,92,0,0.1)',
-            border: '1px solid rgba(255,92,0,0.2)',
-            borderRadius: 100,
-            padding: '6px 16px',
-            marginBottom: 24,
-          }}>
-            <span style={{ color: '#FF5C00', fontSize: '0.8rem', fontWeight: 500 }}>🏅 Platforma #1 dla aktywnych w Polsce</span>
+        <div style={{
+          maxWidth: 1200,
+          margin: '0 auto',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0,1fr) minmax(0,420px)',
+          gap: '40px 64px',
+          alignItems: 'center',
+        }}>
+          {/* Left: copy */}
+          <div>
+            <div className="section-label fade-in-up visible" style={{ marginBottom: 20 }}>
+              🏆 #1 platforma sportowa w Polsce
+            </div>
+
+            <h1 className="fade-in-up visible delay-1" style={{ fontSize: 'clamp(2.4rem, 6vw, 4.5rem)', marginBottom: 20, letterSpacing: '-0.02em' }}>
+              Znajdź swój<br />
+              <span className="gradient-text">następny start.</span>
+            </h1>
+
+            <p className="fade-in-up visible delay-2" style={{ color: 'var(--text-secondary)', fontSize: 'clamp(0.95rem, 2vw, 1.1rem)', maxWidth: 460, lineHeight: 1.75, marginBottom: 36, fontWeight: 300 }}>
+              Biegi, triathlony, OCR, Hyrox i więcej — wszystkie polskie zawody sportowe w jednym miejscu.
+            </p>
+
+            {/* Search bar */}
+            <form onSubmit={handleSearch} className="search-bar fade-in-up visible delay-3" style={{ padding: 8, display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: 600 }}>
+              <input
+                type="text"
+                placeholder="Szukaj wydarzeń, miast, dyscyplin..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  flex: '2 1 200px',
+                  minWidth: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.9rem',
+                  padding: '8px 10px',
+                  fontFamily: 'DM Sans',
+                }}
+              />
+              <select
+                value={sportFilter}
+                onChange={(e) => setSportFilter(e.target.value)}
+                style={{ flex: '1 1 140px', minWidth: 0, background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', borderRadius: 10, color: 'var(--text-secondary)', padding: '8px 10px', fontSize: '0.82rem', outline: 'none', fontFamily: 'DM Sans', cursor: 'pointer' }}
+              >
+                <option value="">Dyscyplina</option>
+                {Object.entries(SPORT_TYPES).map(([k, s]) => (
+                  <option key={k} value={k}>{s.emoji} {s.label}</option>
+                ))}
+              </select>
+              <select
+                value={voivodeshipFilter}
+                onChange={(e) => setVoivodeshipFilter(e.target.value)}
+                style={{ flex: '1 1 140px', minWidth: 0, background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', borderRadius: 10, color: 'var(--text-secondary)', padding: '8px 10px', fontSize: '0.82rem', outline: 'none', fontFamily: 'DM Sans', cursor: 'pointer' }}
+              >
+                <option value="">Województwo</option>
+                {VOIVODESHIPS.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+              <button type="submit" className="btn-primary" style={{ flex: '0 0 auto', padding: '10px 22px', fontSize: '0.9rem' }}>
+                Szukaj →
+              </button>
+            </form>
           </div>
 
-          <h1 style={{
-            fontFamily: 'Syne',
-            fontWeight: 800,
-            fontSize: 'clamp(2.5rem, 7vw, 4.5rem)',
-            lineHeight: 1.1,
-            marginBottom: 16,
-            color: 'rgba(255,255,255,0.88)',
-          }}>
-            Jedno miejsce.<br />
-            <span className="gradient-text">Wszystkie starty.</span>
-          </h1>
-
-          <p style={{
-            color: 'rgba(255,255,255,0.5)',
-            fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
-            maxWidth: 560,
-            margin: '0 auto 40px',
-            lineHeight: 1.6,
-            fontWeight: 300,
-          }}>
-            Biegi, triatlony, OCR, Hyrox i więcej — wszystkie polskie zawody sportowe w jednym miejscu.
-          </p>
-
-          {/* Search */}
-          <form onSubmit={handleSearch} style={{
-            background: '#141416',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16,
-            padding: 8,
-            display: 'flex',
-            gap: 8,
-            flexWrap: 'wrap',
-            maxWidth: 700,
-            margin: '0 auto',
-          }}>
-            <input
-              type="text"
-              placeholder="Szukaj wydarzeń, miast, dyscyplin..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                flex: 2,
-                minWidth: 200,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: 'rgba(255,255,255,0.88)',
-                fontSize: '0.95rem',
-                padding: '8px 12px',
-                fontFamily: 'DM Sans',
-              }}
-            />
-            <select
-              value={sportFilter}
-              onChange={(e) => setSportFilter(e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: 140,
-                background: '#1C1C1F',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 10,
-                color: 'rgba(255,255,255,0.7)',
-                padding: '8px 12px',
-                fontSize: '0.875rem',
-                outline: 'none',
-                fontFamily: 'DM Sans',
-              }}
-            >
-              <option value="">Dyscyplina</option>
-              {Object.entries(SPORT_TYPES).map(([key, val]) => (
-                <option key={key} value={key}>{val.emoji} {val.label}</option>
-              ))}
-            </select>
-            <select
-              value={voivodeshipFilter}
-              onChange={(e) => setVoivodeshipFilter(e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: 140,
-                background: '#1C1C1F',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 10,
-                color: 'rgba(255,255,255,0.7)',
-                padding: '8px 12px',
-                fontSize: '0.875rem',
-                outline: 'none',
-                fontFamily: 'DM Sans',
-              }}
-            >
-              <option value="">Województwo</option>
-              {VOIVODESHIPS.map((v) => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              style={{
-                background: '#FF5C00',
-                color: 'white',
-                border: 'none',
-                borderRadius: 10,
-                padding: '10px 24px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                fontSize: '0.95rem',
-                fontFamily: 'DM Sans',
-                transition: 'opacity 0.2s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Szukaj →
-            </button>
-          </form>
+          {/* Right: Poland map */}
+          <div className="hide-mobile fade-in-up visible delay-2" style={{ display: 'flex', justifyContent: 'center' }}>
+            <PolandMap />
+          </div>
         </div>
       </section>
 
-      {/* Animated Stats */}
-      <section style={{ background: '#1C1C1F', padding: '40px 16px' }}>
-        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6">
-          <AnimatedStat value={stats.total_events || 150} label="Wydarzeń" />
-          <AnimatedStat value={stats.total_regions || 16} label="Województw" />
-          <AnimatedStat value={stats.sport_categories || 6} label="Dyscyplin" />
-          <AnimatedStat value={stats.events_this_month || 12} label="Startów w tym miesiącu" />
+      {/* ── STATS BAR ────────────────────────────────────────────────────── */}
+      <section style={{ background: 'var(--bg-elevated)', borderTop: '1px solid var(--bg-border)', borderBottom: '1px solid var(--bg-border)', padding: '36px 20px' }}>
+        <div ref={statsRef} style={{ maxWidth: 800, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }} className="grid-2-mobile">
+          {[
+            { value: stats.total_events || 150, label: 'Wydarzeń' },
+            { value: stats.total_regions || 16, label: 'Województw' },
+            { value: stats.sport_categories || 6, label: 'Dyscyplin' },
+            { value: stats.events_this_month || 12, label: 'Startów w tym miesiącu' },
+          ].map((s, i) => (
+            <div key={s.label} className={`fade-in-up delay-${i + 1}`} style={{ position: 'relative' }}>
+              {i > 0 && <div style={{ position: 'absolute', left: -12, top: '20%', height: '60%', width: 1, background: 'var(--bg-border)' }} />}
+              <StatCounter value={s.value} label={s.label} />
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Category cards */}
-      <section style={{ padding: '48px 0 32px' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.75rem', marginBottom: 24, color: 'rgba(255,255,255,0.88)' }}>
-            Przeglądaj dyscypliny
-          </h2>
-          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }}>
-            {Object.entries(SPORT_TYPES).map(([key, sport]) => (
+      {/* ── DISCIPLINE CARDS ─────────────────────────────────────────────── */}
+      <section style={{ padding: '72px 0 0' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
+          <div style={{ marginBottom: 28 }}>
+            <span className="section-label">🏅 Dyscypliny</span>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', color: 'var(--text-primary)' }}>
+              Przeglądaj dyscypliny
+            </h2>
+          </div>
+          <div ref={disciplinesRef} className="scroll-x" style={{ display: 'flex', gap: 14, paddingBottom: 4 }}>
+            {Object.entries(SPORT_TYPES).filter(([k]) => k !== 'other').map(([key, sport], i) => (
               <button
                 key={key}
                 onClick={() => navigate(`/kalendarz?sport_type=${key}`)}
+                className={`fade-in-up delay-${i + 1}`}
                 style={{
                   flex: '0 0 auto',
-                  width: 140,
-                  background: '#141416',
-                  border: `1px solid rgba(255,255,255,0.06)`,
-                  borderLeft: `3px solid ${sport.color}`,
-                  borderRadius: 14,
-                  padding: '16px 14px',
+                  width: 160,
+                  background: 'var(--bg-card)',
+                  border: `1px solid var(--bg-border)`,
+                  borderLeft: `4px solid ${sport.color}`,
+                  borderRadius: 'var(--radius-card)',
+                  padding: '18px 16px',
                   cursor: 'pointer',
                   textAlign: 'left',
-                  transition: 'all 0.2s',
-                  fontFamily: 'DM Sans',
+                  transition: 'all 0.3s var(--ease-expo)',
+                  fontFamily: 'inherit',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = sport.color}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderLeftColor = sport.color; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = sport.color;
+                  e.currentTarget.style.background = `${sport.color}0C`;
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = `0 12px 32px rgba(0,0,0,0.3)`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--bg-border)';
+                  e.currentTarget.style.borderLeftColor = sport.color;
+                  e.currentTarget.style.background = 'var(--bg-card)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
-                <div style={{ fontSize: 32, marginBottom: 8 }}>{sport.emoji}</div>
-                <div style={{ color: 'rgba(255,255,255,0.88)', fontWeight: 500, fontSize: '0.9rem', marginBottom: 4 }}>
-                  {sport.label}
-                </div>
-                <div style={{ color: sport.color, fontSize: '0.8rem' }}>
+                <div style={{ fontSize: 36, marginBottom: 10, lineHeight: 1 }}>{sport.emoji}</div>
+                <div style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: 4 }}>{sport.label}</div>
+                <div style={{ color: sport.color, fontSize: '0.8rem', fontWeight: 500 }}>
                   {sportCounts[key] || 0} startów
                 </div>
               </button>
@@ -318,31 +318,66 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Events */}
-      {featuredEvents.length > 0 && (
-        <section style={{ padding: '32px 0 48px', background: '#1C1C1F' }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <h2 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.75rem', color: 'rgba(255,255,255,0.88)' }}>
-                ⭐ Wyróżnione starty
+      {/* ── FEATURED EVENTS ──────────────────────────────────────────────── */}
+      <section style={{ padding: '72px 0' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <span className="section-label">⭐ Polecane</span>
+              <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', color: 'var(--text-primary)' }}>
+                Polecane starty
               </h2>
-              <button
-                onClick={() => navigate('/kalendarz')}
-                style={{ color: '#FF5C00', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: '0.9rem' }}
-              >
-                Zobacz wszystkie →
-              </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {featuredEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
+            <Link to="/kalendarz" style={{ color: 'var(--accent)', fontSize: '0.9rem', fontWeight: 500, transition: 'opacity 0.2s' }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+            >
+              Zobacz wszystkie →
+            </Link>
           </div>
-        </section>
-      )}
 
-      {/* Newsletter */}
+          <div ref={featuredRef} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+            {loading
+              ? [1,2,3].map((i) => <div key={i} className={`fade-in-up delay-${i}`}><SkeletonCard /></div>)
+              : featuredEvents.length === 0
+                ? <p style={{ color: 'var(--text-secondary)', gridColumn: '1/-1' }}>Brak wyróżnionych wydarzeń.</p>
+                : featuredEvents.map((e, i) => (
+                    <div key={e.id} className={`fade-in-up delay-${(i % 6) + 1}`}>
+                      <EventCard event={e} />
+                    </div>
+                  ))
+            }
+          </div>
+        </div>
+      </section>
+
+      {/* ── ARTICLES ─────────────────────────────────────────────────────── */}
+      <section style={{ padding: '0 0 80px', background: 'var(--bg-elevated)', borderTop: '1px solid var(--bg-border)', borderBottom: '1px solid var(--bg-border)', paddingTop: 64, paddingBottom: 72 }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <span className="section-label">📖 Wiedza</span>
+              <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', color: 'var(--text-primary)' }}>
+                Poradniki i inspiracje
+              </h2>
+            </div>
+            <Link to="/artykuly" style={{ color: 'var(--accent)', fontSize: '0.9rem', fontWeight: 500 }}>
+              Wszystkie artykuły →
+            </Link>
+          </div>
+
+          <div ref={articlesRef} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+            {loading
+              ? [1,2,3].map((i) => <div key={i} className={`fade-in-up delay-${i}`}><SkeletonArticleCard /></div>)
+              : articles.length === 0
+                ? <p style={{ color: 'var(--text-secondary)', gridColumn: '1/-1' }}>Brak artykułów.</p>
+                : articles.map((a, i) => <ArticleCard key={a.id} article={a} delay={(i % 3) + 1} />)
+            }
+          </div>
+        </div>
+      </section>
+
+      {/* ── NEWSLETTER ───────────────────────────────────────────────────── */}
       <Newsletter />
     </div>
   );
