@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "cold-outreach": {
+      "source": "gtmagents/gtm-agents",
+      "sourceType": "github",
+      "skillPath": "plugins/sales-prospecting/skills/cold-outreach/SKILL.md",
+      "computedHash": "d9594e66aa8ff4c4b2ecf7b65ff0ed7b918482349ac9c53b14916d1e37cc0020"
+    }
+  }
+}
